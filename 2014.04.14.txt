@@ -1,0 +1,213 @@
+#include "stdafx.h"
+#include"utilities.h"
+#include"SharedProtection.h"
+#include<lemon/random.h>
+
+//#include"Dijkstraplus.h"
+
+using namespace std;
+using namespace lemon;
+/*
+*      a dijkstraba vhogy tiltást kell tenni egy adott élre vonatkozólag
+*      TIPS:
+*              -lemon/dijkstra lengthmap-el párhuzamosan engedélyzõ map
+*
+*
+* ModDijkstra:
+*      -kupac adatszerk megért(wiki)
+*      -lemon/heap átnéz
+*
+*
+*/
+int GlobalSpectrumState::alloc_pos(0);
+int GlobalSpectrumState::blokknum(0);
+int GlobalSpectrumState::ALLOCMOD(2);
+int GlobalSpectrumState::global_key(0);
+bool GlobalSpectrumState::isblocked(false);
+int CH::channel_num(55);
+
+void testerfunction_moddijk(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &spectrum_map, GlobalSpectrumState &globalspectrum);
+void testerfunction_K_short(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &spectrum_map, GlobalSpectrumState &globalspectrum);
+int main() {
+	typedef dim2::Point<int> Point;
+	typedef ListGraph::Node Node;
+	typedef ListGraph::Edge Edge;
+	typedef PathNodeIt<Path<ListGraph> > PN;
+	typedef ListDigraph::Node DiNode;
+
+	enum SASP{ MODDIJK = 1, KSHORT = 2, };
+	
+	ListGraph graph;
+	graphReader(graph, "26_usa.lgf").run(); //.edgeMap("cost",lengthmap)
+	ListDigraph digraph;
+	digraphReader(digraph, "26_usa.lgf").run(); // két grafot olvasunk be egy irányított és egy irányítatlan
+	ListGraph::EdgeMap<int> lengthmap(graph);
+	ListGraph::EdgeMap<bool> permittingmap(graph);
+	ListGraph::NodeMap<pathpair_vector> pathmap(graph); //minden csomóponthoz tartozó utak hlamza 
+	ListGraph::EdgeMap<SpectrumState> spectrum_map(graph);
+	
+	GlobalSpectrumState globalspectrum(graph, spectrum_map);
+
+	Node u;
+	Node v;
+	Edge e;
+
+	Deparallel para;
+	para(graph); 
+	
+
+	//ListGraph::EdgeIt eit(graph);
+	//for (eit; eit != INVALID; ++eit){
+	//seti.insert(graph.id(eit));
+	//}
+	//for (auto it = seti.begin(); it != seti.end(); it++){ cout << *it<<endl; }
+	//cout << seti.size();
+	Node a = graph.nodeFromId(22);
+	Node b = graph.nodeFromId(19);
+	Node c = graph.nodeFromId(17);
+	Node d = graph.nodeFromId(14);
+	Edge eee = lemon::findEdge(graph, a, b);
+	
+	//testerfunction_moddijk(graph, spectrum_map, globalspectrum);
+
+//-----------------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------------
+
+	
+	std::vector< vector<int> > Kshortvec;
+	Path<ListGraph> allocated;
+	Random random;
+
+	int counter = 0;
+	long int dursum(0), durcnt(0);
+	int n1(0), n2(0), width1(0), k(0); long int dur = 0;
+	int K0 = 0;
+	lemon::Random random1(random);
+	cout << endl;
+	//MakeSubgraph makesub(graph, allocated, spectrum_map);
+	//Subgraph subgraph = makesub.run();
+	SharedProtection shared_protection(globalspectrum,allocated);
+	
+	int j(0);
+
+		cout << "Keresek szama:" << endl;
+		cin >> j;
+		cout << "K:";
+		cin >> K0;
+		cout << endl << "Kshort";
+		for (int i2 = 0; i2<j; i2++)
+		{
+			
+			n1 = random1.integer(0, 25); 
+			n2 = random1.integer(0, 25); 
+			Node s = graph.nodeFromId(n1);
+			Node t = graph.nodeFromId(n2);
+			dur = (long int)random1.exponential(0.03);
+			dursum = dursum + dur;
+			width1 = random1.integer(1, 5);
+			width1 = 5;
+				if (n1 != n2&&dur>0){
+					if (!globalspectrum.EndToEnd(s, t, width1, dur))
+					{
+						GlobalSpectrumState::isblocked = false;
+						Kshort<ListGraph> _ks(graph, Kshortvec, globalspectrum);
+						_ks.setK(K0);
+						_ks.run(s, t,width1, dur);
+						allocated = _ks.allocatedPath();
+					}
+
+					MakeSubgraph makesub(graph, allocated, spectrum_map);
+					Subgraph subgraph = makesub.run();
+					
+					//shared_protection.setAllocated(allocated);
+					//shared_protection.run(s, t, width1, dur);
+					if (!GlobalSpectrumState::isblocked)
+					{
+						MakeSubgraph makesub(graph, allocated, spectrum_map);
+						Subgraph subgraph = makesub.run();
+						Kshort<Subgraph> _ks(subgraph, Kshortvec, globalspectrum);
+						_ks.setK(K0);
+						_ks.run(s, t, width1, dur);
+					}
+
+
+
+
+					/*
+					if ((!globalspectrum.disjoint_EndToEnd(s, t, width1, dur, allocated)) && (!GlobalSpectrumState::isblocked))
+					{
+						MakeSubgraph makesub(graph, allocated, spectrum_map);
+						Subgraph subgraph = makesub.run();
+						Kshort<Subgraph> _ks(subgraph, Kshortvec, globalspectrum);
+						_ks.setK(K0);
+						_ks.run(s, t, width1, dur);
+					}
+					*/
+				globalspectrum.TimeCheck();
+			}
+			else{ counter++; }
+			//printSpectrum(spectrum_map,graph);
+
+		}
+		printSpectrum(spectrum_map, graph);
+		cout << endl << "BLOKKOLASOK:"; cout << globalspectrum.blokknum;
+		cout << endl << "counter" << counter;
+		cout << endl << "atlag" << dursum / j;
+		cout << globalspectrum.blokknum;
+		
+	return 0;
+}
+
+void testerfunction_moddijk(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &spectrum_map, GlobalSpectrumState &globalspectrum){
+	Random random;
+	long int dursum(0), durcnt(0);
+	int n1(0), n2(0), width1(0), k(0); long int dur = 0;
+	int K0 = 0;
+	lemon::Random random1(random);
+
+	ModDijkstra<ListGraph> md_dijkstra(graph, spectrum_map, globalspectrum);
+	Path<ListGraph> prev_allocated;
+	Path<ListGraph> allocated;
+	for (int i2 = 0; i2<10; i2++)
+	{
+		//cout << "Source(0-25):";
+		//cin >> n1;
+		//cout << endl << "Target";
+		//cin >> n2;
+		n1 = random1.integer(0, 25);
+		n2 = random1.integer(0, 25);
+		Node s1 = graph.nodeFromId(n1);
+		Node t1 = graph.nodeFromId(n2);
+		dur = (long int)random1.exponential(0.03);
+		width1 = random1.integer(1, 5);
+		//width1 = 5;
+
+		if (n1 != n2&&dur>0){
+			if (!globalspectrum.EndToEnd(s1, t1, width1, dur))
+			{
+				md_dijkstra.run(s1, t1, width1, dur);
+				//md_dijkstra.printAllocatedNodes();
+			}
+			MakeSubgraph makesub(md_dijkstra);
+			Subgraph subgraph = makesub.run();
+			Subgraph::EdgeMap<SpectrumState> *sub_spectrum_map = makesub.makeSpectrum(subgraph); //ez elvileg nem kell
+			ModDijkstra<Subgraph> md_dijkstra1(subgraph, *sub_spectrum_map, globalspectrum); 
+			
+			allocated = md_dijkstra.allocatedPath();
+			
+			if ((!globalspectrum.disjoint_EndToEnd(s1, t1, width1, dur, allocated)) && (!GlobalSpectrumState::isblocked))
+			{
+
+				md_dijkstra1.run(s1, t1, width1, dur);
+				//md_dijkstra1.printAllocatedNodes();
+				prev_allocated = md_dijkstra1.allocatedPath();
+
+			}
+			globalspectrum.TimeCheck();
+		}
+
+	}
+	printSpectrum(spectrum_map, graph);
+	cout << endl << "BLOKKOLASOK:";
+	cout << globalspectrum.blokknum;
+}
