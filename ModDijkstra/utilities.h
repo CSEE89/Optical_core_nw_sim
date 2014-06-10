@@ -462,8 +462,9 @@ class SubgraphMaker{
 
 public:
 	SubgraphMaker(ListGraph &igraph, Path<ListGraph> &all) :graph(igraph),allocated(all){
-		for (ListGraph::NodeIt it(graph); it != INVALID; ++it){ node_filter->set(it, true); }
-		for (ListGraph::EdgeIt it(graph); it != INVALID; ++it){ arc_filter->set(it, true); }
+		node_filter = new ListGraph::NodeMap<bool>(graph);
+		arc_filter = new ListGraph::EdgeMap<bool>(graph);
+		
 	}
 	~SubgraphMaker(){
 		delete node_filter;
@@ -471,7 +472,8 @@ public:
 		delete subgraph;		
 	}
 	Subgraph* make(){
-
+		for (ListGraph::NodeIt it(graph); it != INVALID; ++it){ node_filter->set(it, true); }
+		for (ListGraph::EdgeIt it(graph); it != INVALID; ++it){ arc_filter->set(it, true); }
 		subgraph = new Subgraph(graph, *node_filter, *arc_filter);
 		Path<ListGraph>::ArcIt arc_it(allocated);
 		for (arc_it; arc_it != INVALID; ++arc_it)
