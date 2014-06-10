@@ -21,7 +21,7 @@
 #include<lemon/adaptors.h>
 #include<lemon/connectivity.h>
 #include<lemon/path.h>
-#include"stl_out.h"
+#include"moddijkstra.h"
 #include"Kshort_mod.h"
 
 
@@ -66,12 +66,11 @@ template<typename GR>class Kshort : public KShortestPath<GR>, public DefaultAlgo
 	//const std::vector< std::vector<int> > &Kshortvec; //
 	//const ListGraph &graph;  //main-ben lévő globális gráf
 	GlobalSpectrumState &global;
-	std::vector<listpath> pathvec;  //Kshrot által megtalált utak halmaza
 	Path<GR> allocated;
 	int K;
 public:
 	friend class MakeSubgraph;
-	Kshort(GR &graph, std::vector< std::vector<int> > &vec, GlobalSpectrumState &global) :KShortestPath(graph, vec), global(global), pathvec()
+	Kshort(GR &graph, GlobalSpectrumState &global) :KShortestPath(graph), global(global)
 	{
 		
 	}
@@ -81,15 +80,10 @@ public:
 	void run(Node s, Node t, const int &width, const long int &timestamp){
 		A.clear();
 		YenKshort(s, t, K);
-		conv();
 		alloc(width, timestamp);
 		A.clear();
 	}
 
-	void runSameSpect(int width, long int dur){
-		conv();
-		alloc(width, dur);
-	}
 	//visszaadja a lefoglalt utat
 	Path<GR> allocatedPath(){
 		return allocated;
@@ -118,27 +112,37 @@ private:
 		}
 		
 	}
-	
 	/*
 	alloc-ban hívódik meg
 	Végiglépked az útvonalakaon ahol van szabad spektrum tmpPath-ba betölti az utat, visszatér ture-val
 	*/
-	bool createPath(const int &width,Path<ListGraph> &tmpPath)
-	{
-		for(int i=0;i<pathvec.size();i++)
+
+	bool createPath(const int &width, Path<ListGraph> &tmpPath){
+		for (std::vector<std::vector<int> >::const_iterator it = A.begin(); it != A.end(); it++)
 		{
+			tmpPath.clear();
 			
-			SpectrumState spectrum=global.PathSpectrum(pathvec[i]); //KOPI KONSTRUKTOR
-			//Path<ListGraph> path(it->first);
-			if(global.checkSelector(width,spectrum))
+			for (int i = 1; i<it->size(); i++)
 			{
-				tmpPath=(lemon::Path<ListGraph>)pathvec[i];
+				int j = i - 1;
+				Node s = graph.nodeFromId(it->at(i));
+				Node t = graph.nodeFromId(it->at(j));
+				ListGraph::Arc arc = lemon::findArc(graph, s, t);
+				tmpPath.addBack(arc);
+			}
+			SpectrumState spectrum = global.PathSpectrum(tmpPath); //KOPI KONSTRUKTOR
+			//Path<ListGraph> path(it->first);
+			if (global.checkSelector(width, spectrum))
+			{
+				//tmpPath = (lemon::Path<ListGraph>)pathvec[i];
 				return true;
 			}
-			
+
 		}
 		return false;
+	
 	}
+
 	/*
 	Meghívja a global.Alloc-ot
 	*/
@@ -182,6 +186,7 @@ public:
 	typedef typename GR::template NodeMap<pathpair_vector> path_Map;  //path map
 	typedef typename GR::template EdgeMap<SpectrumState> edge_spectrum_Map;
 	typedef typename GR::template EdgeMap<double> cost_Map;
+	typedef typename GR::template EdgeMap<int> int_Map;
 	pMap *createPermittingmap(const GR &g)
 	{
 		GR::EdgeMap<bool>* tmp = new GR::EdgeMap<bool>(g);
@@ -205,6 +210,10 @@ public:
 
 		return new GR::EdgeMap<double>(g);
 	}
+	int_Map* createIntMap(const GR &g)
+	{
+		return new GR::EdgeMap<int>(g);
+	}
 
 };
 
@@ -221,7 +230,8 @@ template <typename T> class ModDijkstra: public DefaultAlgorithm
   typedef T GR;
   typedef typename GR::template EdgeMap<bool> pMap; //permitting map
   typedef typename GR::template NodeMap<pathpair_vector> path_Map;  //path map
-  typedef typename GR::template EdgeMap<int> intMap;
+  typedef typename GR::template EdgeMap<double> cost_Map;
+
   pMap* permittingmap; //
   path_Map *pathmap; //tárolja a nodeokban a dijkstra futás során tárolt értékeketet, útvonalak, és ahhoz tartozó spektrum
   GR &graph;
@@ -229,33 +239,101 @@ template <typename T> class ModDijkstra: public DefaultAlgorithm
   std::multiset<pathpair,comp> _set;  //a két csomópont között megtalált útvonalak hossz szerint, (2 szer fut a dijkstra a 2 irányra ezeket pakolja bele)
   GlobalSpectrumState &globalspectrum;
   Path<GR> allocated;
-  //listpath allocated;
+  cost_Map* lengthmap;
+
 public:
 	friend class MakeSubgraph;
+	
 	ModDijkstra(GR &_graph,ListGraph::EdgeMap<SpectrumState> &sp,GlobalSpectrumState &gs):graph(_graph),spectrum_state(sp),globalspectrum(gs)
 	{
 		MapFactory<GR> mapf;
 		permittingmap = mapf.createPermittingmap(graph);
 		pathmap = mapf.createPathMap(graph);
+		lengthmap = mapf.createEdgeCostMap(graph);
+		for (GR::EdgeIt it(graph); it != INVALID; ++it){
+			lengthmap->set(it, 1);
+		}
 	}
-
+	ModDijkstra(GR &_graph, GlobalSpectrumState &gs) :graph(_graph), spectrum_state(gs.spectrum_map), globalspectrum(gs)
+	{
+		MapFactory<GR> mapf;
+		permittingmap = mapf.createPermittingmap(graph);
+		pathmap = mapf.createPathMap(graph);
+		lengthmap = mapf.createEdgeCostMap(graph);
+		for (GR::EdgeIt it(graph); it != INVALID; ++it){
+			lengthmap->set(it, 1);
+		}
+	}
 	~ModDijkstra()
 	{
 		delete permittingmap;
 		delete pathmap;
+		delete lengthmap;
+	}
+
+	void initlengthMap(ListGraph::EdgeMap<double>& map)
+	{
+		for (GR::EdgeIt it(graph); it != INVALID; ++it)
+		{
+			lengthmap->set(it, map[it]);
+		}
+	}
+
+	bool calcpath(Node s, Node t, const int &width)
+	{
+		
+		GR::EdgeIt eit(graph);
+		//for (eit; eit != INVALID; ++eit)
+		//{
+			//cout << graph.id(eit); spectrum_state[eit].print();
+			//std::cout << std::endl;
+		//}
+		//cout << endl;
+		bool switcher = false; // tudunk e allokálni valamelyik út mentén
+		int pos(0);
+		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_state);
+		setperm(width);
+		dijkstra.init();	
+		dijkstra.modaddSource(s, *pathmap);
+		dijkstra.modstart(*permittingmap, *pathmap);
+
+
+		pathpair_vector temp(pathmap->operator[](t));
+
+		this->init();
+		setperm(width);
+		dijkstra.init();
+		dijkstra.modaddSource(t, *pathmap);
+		dijkstra.modstart(*permittingmap, *pathmap);
+		setfill(pathmap->operator[](s), temp);
+
+		listpath tmpPath;
+
+		if (createPath(width, tmpPath)){
+			allocated = tmpPath;
+			switcher = true;
+		}
+		else{
+			switcher = false;
+			GlobalSpectrumState::isblocked = true;
+			if (GlobalSpectrumState::protection_round == false){
+				GlobalSpectrumState::blokknum++;
+			}
+			else if (GlobalSpectrumState::protection_round == true)
+			{
+				GlobalSpectrumState::protection_blokknum++;
+			}
+		}
+		this->init();
+		return switcher;
 	}
 	//\
-		feltölti a _set változót útvonalakkal, oda-vissza fut \
-		createpath -et hvja
-
+			feltölti a _set változót útvonalakkal, oda-vissza fut \
+			createpath -et hívja
 	void run(Node s, Node t, const int &width, const long int &timestamp)
 	{
 		int pos(0);
-		intMap lengthmap(graph);
-		for (GR::EdgeIt it(graph); it != INVALID; ++it){
-			lengthmap.set(it, 1);
-		}
-		lemon::csabi::Dijkstra<GR, intMap> dijkstra(graph, lengthmap, spectrum_state);
+		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_state);
 		setperm(width);
 		dijkstra.init();
 		dijkstra.modaddSource(s, *pathmap);
@@ -375,61 +453,36 @@ public:
 
 //typedef ListGraph::EdgeMap<bool> permMap;
 
-class MakeSubgraph{
-	
+class SubgraphMaker{
 	ListGraph &graph;
 	Path<ListGraph> &allocated;
-	ListGraph::EdgeMap<SpectrumState> &spectrum_state;
+	Subgraph* subgraph;
 	ListGraph::NodeMap<bool> *node_filter;
-	ListGraph::EdgeMap<bool> *arc_filter;
-	Subgraph::EdgeMap<SpectrumState> *tempMap;
+	ListGraph::EdgeMap<bool> *arc_filter;	
+
 public:
-	MakeSubgraph(ModDijkstra<ListGraph> &_moddijkstra) :graph(_moddijkstra.graph),allocated(_moddijkstra.allocated),spectrum_state(_moddijkstra.spectrum_state){		
-		node_filter = new ListGraph::NodeMap<bool>(graph);
-		arc_filter = new ListGraph::EdgeMap<bool>(graph);
-	}
-	MakeSubgraph(Kshort<ListGraph> &ks, ListGraph::EdgeMap<SpectrumState> &st) :graph(ks.graph), allocated(ks.allocated), spectrum_state(st){
-		node_filter = new ListGraph::NodeMap<bool>(graph);
-		arc_filter = new ListGraph::EdgeMap<bool>(graph);
-	}
-	MakeSubgraph(ListGraph &kgraph, Path<ListGraph> kallocated, ListGraph::EdgeMap<SpectrumState> &st) :graph(kgraph), allocated(kallocated), spectrum_state(st){
-		node_filter = new ListGraph::NodeMap<bool>(graph);
-		arc_filter = new ListGraph::EdgeMap<bool>(graph);
-	}
-
-	~MakeSubgraph(){
-	
-		delete node_filter;
-		delete arc_filter;
-		delete tempMap;
-	}
-	Subgraph run(){
-
+	SubgraphMaker(ListGraph &igraph, Path<ListGraph> &all) :graph(igraph),allocated(all){
 		for (ListGraph::NodeIt it(graph); it != INVALID; ++it){ node_filter->set(it, true); }
 		for (ListGraph::EdgeIt it(graph); it != INVALID; ++it){ arc_filter->set(it, true); }
-		Subgraph sub(graph, *node_filter, *arc_filter);
+	}
+	~SubgraphMaker(){
+		delete node_filter;
+		delete arc_filter;
+		delete subgraph;		
+	}
+	Subgraph* make(){
+
+		subgraph = new Subgraph(graph, *node_filter, *arc_filter);
 		Path<ListGraph>::ArcIt arc_it(allocated);
 		for (arc_it; arc_it != INVALID; ++arc_it)
 		{
 			Node t = graph.target(arc_it);
 			Node s = graph.source(arc_it);
 			Edge e = lemon::findEdge(graph, t, s);
-			sub.disable(e);
+			subgraph->disable(e);
 		}
-		return sub;
+		return subgraph;
 	}
-	// Subgraph-hoz tartozó spektrumállapot "EdgeMap" létrehozása
-	Subgraph::EdgeMap<SpectrumState>* makeSpectrum(Subgraph &subgraph){
-		Subgraph::EdgeMap<SpectrumState> *tempMap = new Subgraph::EdgeMap<SpectrumState>(subgraph);
-		for (Subgraph::EdgeIt eit(subgraph); eit != INVALID; ++eit){
-			if (subgraph.id(eit) == graph.id(eit)){
-				tempMap->operator[](eit) = spectrum_state[eit];
-				//std::cout << i++;
-			}
-		}
-		return tempMap;
-	}
-	
 };
 
 

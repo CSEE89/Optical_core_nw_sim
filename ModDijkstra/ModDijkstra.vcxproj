@@ -168,6 +168,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Dedicated_protection.h" />
+    <ClInclude Include="general_traits.h" />
     <ClInclude Include="Kshort_ListGraph.h" />
     <ClInclude Include="Kshort_mod.h" />
     <ClInclude Include="moddijkstra.h" />
@@ -177,7 +178,6 @@
     <ClInclude Include="SpectrumAwareDijsktra.h" />
     <ClInclude Include="SpectrumState.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="stl_out.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="utilities.h" />
   </ItemGroup>

@@ -15,7 +15,6 @@
 #include<lemon/adaptors.h>
 #include<lemon/connectivity.h>
 #include<lemon/path.h>
-#include"stl_out.h"
 #include"Kshort_mod.h"
 #include"utilities.h"
 
@@ -30,57 +29,89 @@ using namespace std;
 */
 
 // GlobelSpectrumState barát függvénye
-class SharedProtection: public DefaultAlgorithm{
+//template <typename rsa=DefaultAlgorithm> 
+class SharedProtection{
 
 	GlobalSpectrumState &global;
-	ListGraph::EdgeMap<SpectrumState> *mod_spectrum_map;
-	ListGraph::EdgeMap<double> *cost_map;
-	Path<ListGraph> &allocated;
-	
+	Subgraph::EdgeMap<SpectrumState> *mod_spectrum_map; // módosított spektrum map: védelmi útvonalválasztáshoz, üzemi és üzemivel közös védelmi 1 
+	Subgraph::EdgeMap<double> *cost_map;  // length_map figyelembe veszi, hogy megosztandó kapacitáson megy-e
+	Path<ListGraph> &allocated;   // a lefoglalat üzemi út
+	Path<ListGraph> p_path;
+	ListGraph::NodeMap<bool> *node_filter;
+	ListGraph::EdgeMap<bool> *arc_filter;
+	Subgraph *graph;
 
 public:
-	static int cnt;
 
-	 //védelmi utak
-	
-	SharedProtection(GlobalSpectrumState &gb, Path<ListGraph> &alloc) :global(gb),allocated(alloc){
-		MapFactory<ListGraph> mapf;
-		mod_spectrum_map = mapf.createEdgeSpectrumMap(global.graph);
-		cost_map = mapf.createEdgeCostMap(global.graph);
-		cnt++;
+	SharedProtection(GlobalSpectrumState &gb, Path<ListGraph> &alloc) :global(gb), allocated(alloc){
+		node_filter = new ListGraph::NodeMap<bool>(global.graph);
+		arc_filter = new ListGraph::EdgeMap<bool>(global.graph);
+		makeSubgraph();
+		MapFactory<Subgraph> mapf;
+		mod_spectrum_map = mapf.createEdgeSpectrumMap(*graph);
+		cost_map = mapf.createEdgeCostMap(*graph);
+		
 	}
 	~SharedProtection(){
+		delete node_filter;
+		delete arc_filter;
 		delete mod_spectrum_map;
 		delete cost_map;
+		delete graph;
+	}
+	void makeSubgraph(){
+
+		for (ListGraph::NodeIt it(global.graph); it != INVALID; ++it){ node_filter->set(it, true); }
+		for (ListGraph::EdgeIt it(global.graph); it != INVALID; ++it){ arc_filter->set(it, true); }
+		graph = new Subgraph(global.graph, *node_filter, *arc_filter);
+		Path<ListGraph>::ArcIt arc_it(allocated);
+		for (arc_it; arc_it != INVALID; ++arc_it)
+		{
+			Node t = global.graph.target(arc_it);
+			Node s = global.graph.source(arc_it);
+			Edge e = lemon::findEdge(global.graph, t, s);
+			graph->disable(e);
+		}		
 	}
 
 	// algoritmus futtatása, hvja a többi függvényt
 	void run(Node s, Node t, const int &width, const long int &timestamp){
-		makeModSpectrumMap();
-	
+		makeModSpectrumMap();  
 		makeCostMap();
-		Path<ListGraph> p_path=runDijkstra(s, t);
-		SpectrumState spectrum=p_pathSpectrum(p_path);
-		if (global.checkSelector(width, spectrum)){
+		Path<ListGraph> p_path=runDijkstra(s, t);  // útvonalválasztás
+		SpectrumState spectrum=p_pathSpectrum(p_path);  //útvonal spektruma mod_spectrum_map alapján
+		if (global.checkSelector(width, spectrum)){  // spektrumallokálás
 			p_alloc(p_path, width, timestamp, -1);
 		}
 		else{		
 			global.protection_blokknum++;
 		}
 	}
-	
+	void run2(Node s, Node t, const int &width, const long int &timestamp){
+		makeModSpectrumMap();
+		//printSpectrum(*mod_spectrum_map, graph);
+		makeCostMap();
+		if (proba(s, t,width)){  // spektrumallokálás
+			p_alloc(p_path, width, timestamp, -1);
+		}
+
+	}
 	//Dijkstra
 	Path<ListGraph>  runDijkstra(Node s, Node t){
-		MakeSubgraph makesub(global.graph, allocated, global.spectrum_map);
-		Subgraph subgraph = makesub.run();
-		Subgraph::EdgeMap<double> lengthmap(subgraph);
-		for (Subgraph::EdgeIt it(subgraph); it != INVALID; ++it){
-			
-				lengthmap.set(it,cost_map->operator[](it));			
-		}
-		Dijkstra<Subgraph,Subgraph::EdgeMap<double> > dijk(subgraph,lengthmap);
+		
+	
+		Dijkstra<Subgraph,Subgraph::EdgeMap<double> > dijk(*graph,*cost_map);
 		dijk.run(s);
 		return dijk.path(t);
+	}
+	
+	bool proba(Node s, Node t, const int &width){
+		bool switcher = false;
+		ModDijkstra<Subgraph> md_dijkstra(*graph, *mod_spectrum_map, global);
+		md_dijkstra.initlengthMap(*cost_map);
+		switcher=md_dijkstra.calcpath(s, t, width);
+		p_path=md_dijkstra.allocatedPath();	
+		return switcher;
 	}
 
 	void addAllocated(Path<ListGraph> &alloc){
@@ -95,7 +126,7 @@ public:
 		double alpha = 0.5;
 		double w = 0;
 		double s = 0;
-		for (ListGraph::EdgeIt eit(global.graph); eit != INVALID; ++eit){
+		for (Subgraph::EdgeIt eit(*graph); eit != INVALID; ++eit){
 			//van-e megosztott 
 			if (isEnoughShareable(eit))
 			{
@@ -109,8 +140,8 @@ public:
 	}
 
 	// makeCostMap hívja:\
-	van e megosztható kapacitás
-	bool isEnoughShareable(ListGraph::EdgeIt eit){
+	van e megosztható kapacitás az élen
+	bool isEnoughShareable(Subgraph::EdgeIt eit){
 	
 		for (int i = 0; i<global.spectrum_map[eit].carrier.size(); i++)
 		{
@@ -127,7 +158,7 @@ public:
 	void makeModSpectrumMap(){
 	
 		//üzemi által használt spektrumok blokkolása
-		for (ListGraph::EdgeIt eit(global.graph); eit != INVALID; ++eit){
+		for (Subgraph::EdgeIt eit(*graph); eit != INVALID; ++eit){
 			
 				for (int i = 0; i<global.spectrum_map[eit].carrier.size(); i++)
 				{
@@ -139,17 +170,12 @@ public:
 		for (std::multimap<int, PathMatrix>::iterator it = global.path_matrix.begin(); it != global.path_matrix.end(); ++it){
 			if (!global.isEdgeDisjoint(it->second.path, allocated))
 			{
-				for (int i = 0; i < global.pm.size(); i++){
-					if (global.pm[i].first == it->second.unquie_key){
-						ProtectionPathMatrix tempMatrix = global.pm[i].second;
+						ProtectionPathMatrix tempMatrix = global.pm[it->second.unquie_key];
 						lemon::Path<ListGraph> p_path = tempMatrix.path;
 						denyPath(p_path, tempMatrix.pos, tempMatrix.width);
-					}
-				}
-				//ProtectionPathMatrix tempMatrix = global.protection_path_matrix[it->second.unquie_key];
-				
-			}
+			}											
 		}
+		
 
 	}
 
@@ -193,8 +219,7 @@ public:
 	{
 		ProtectionPathMatrix tempMatrix(path, pos, width, timestamp);
 		std::pair<int, ProtectionPathMatrix> pr(global.global_key, tempMatrix);
-		global.pm.push_back(pr);
-		//global.protection_path_matrix.insert(pr);
+		global.pm[global.global_key] = tempMatrix;
 	}
 
 

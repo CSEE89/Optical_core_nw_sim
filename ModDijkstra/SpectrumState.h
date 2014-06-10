@@ -1,94 +1,10 @@
-/* 
- * File:   SpectrumState.h
- * Author: csabi
- *A spektrumszeltek definiálása. Spektrumkitöltési stratégiák implementálása.
- * Üzemi és védelmi utak tárolása, karbantartása, felszabadítása.
- */
 
-#include <iostream>
-#include<lemon/list_graph.h>
-#include<lemon/core.h>
-#include<lemon/adaptors.h>
-#include<algorithm>
-#include<iterator>
-
-#ifndef SPECTRUMSTATE_H
-#define	SPECTRUMSTATE_H
-
-using namespace lemon;
-using namespace std;
+#ifndef SPECTRUMSTATE
+#define SPECTRUMSTATE
+#include "general_traits.h"
 
 
 
-typedef ListGraph::Node Node;
-typedef ListGraph::Edge Edge;
-class SpectrumState;
-typedef Path<ListGraph> listpath; //tipusdefiniciók a ModDijkstra tárolási egységeinek
-typedef std::pair<listpath, SpectrumState> pathpair;
-typedef std::vector<pathpair> pathpair_vector;
-
-
-/**
-Csatornák száma, beaállítva a main.cpp ben
-*/
-struct CH{
-	static int channel_num;
-};
-/**
-* Egy szál vagy link spektrumát reprezentáló egység
-*/
-class SpectrumState{
-     std::vector<int> carrier;
-public:
-	friend class GlobalSpectrumState;
-	friend class SharedProtection;
-    SpectrumState()
-    {
-        std::vector<int> tmp(CH::channel_num,0);
-        carrier=tmp;
-
-    }
-	/*SpectrumState(const SpectrumState &spectrum)
-	{
-		for(int i=0;i<channel_num;i++)
-        {
-			carrier[i]=spectrum[i];
-        }
-	}*/
-	/// Két szál spektrumának összevagyolása, this-> carrier kapja az összevagyolt értékeket
-	void or(const SpectrumState &s)
-	{
-		for(int i=0;i<carrier.size();i++)
-		{
-			carrier[i]=(carrier[i]||s[i]); //hiba: s üres
-		}
-	}
-    ~SpectrumState()
-	{
-		carrier.clear();
-	}
-	/// spektrum kiirasa
-	void print()
-	{
-		for(int i=0;i<carrier.size();i++)
-		{
-		std::cout<<carrier[i];
-		}
-	}
-
-	SpectrumState& operator=(const SpectrumState &st){
-		if (&st == this)
-			return *this;
-		this->carrier = st.carrier;
-		return *this;
-	}
-	/// Egy-egy spektrumszelet elérése, referenciával tér vissza ,hogy módosítható legyen az elem
-	std::vector<int>::reference operator[](int i){return carrier[i]; }
-	 std::vector<int>::const_reference operator[](int i)const { return carrier[i]; }
-	
-	std::vector<int> data(){return carrier;}
-
-};
 
 
 	
@@ -144,9 +60,9 @@ struct PathMatrix{
 class GlobalSpectrumState{
 protected:
 	std::vector< std::vector<int> > traffic_matrix; //van e már összeköttetés a 2 pont között, nincs használva
-	ListGraph::EdgeMap<SpectrumState> &spectrum_map; // hálózat spektruma
+	 // hálózat spektruma
 	std::multimap<int,PathMatrix> path_matrix;// tárolja a két pont közötti összeköttetések útvonalait, spektrum pozicióját és szélességét, az összes meglévő link itt van, minden 2 ponthoz
-	static std::vector<std::pair<int, ProtectionPathMatrix>> pm;  //védelmi utak
+	std::map<int, ProtectionPathMatrix> pm;  //védelmi utak
 	std::pair <std::multimap<int,PathMatrix>::iterator, std::multimap<int,PathMatrix>::iterator> end2end_paths;//EndToEnd-ben
 	ListGraph &graph;
 	int n;  //csomópontok száma
@@ -155,6 +71,7 @@ protected:
 	
 	
 public:
+	ListGraph::EdgeMap<SpectrumState> &spectrum_map;
 	static int global_key;  //protecton_path_matrix key erteke, szerepel path_matrix elemeiben
 	static int ALLOCMOD;  // lefoglalási strategia
 	static int blokknum;  // blokkolások száma
@@ -592,6 +509,7 @@ public:
 	ha igen törli path_matrix-ból és felszabadítja a spektrumot
 	void TimeCheck()
 	{
+		
 		std::multimap<int,PathMatrix>::iterator eit;
 		std::vector<std::multimap<int,PathMatrix>::iterator> veci;
 		
@@ -614,23 +532,61 @@ public:
 		veci.clear();
 
 		//protection-ra
-	
-		for (std::vector<std::pair<int, ProtectionPathMatrix>>::iterator pit = pm.begin(); pit != pm.end(); ++pit)
+		std::vector<int> obsolate;
+		
+		for (auto pit = pm.begin(); pit != pm.end(); ++pit)
 		{
-			 
+
 			pit->second.timestamp--;
-			if (pit->second.timestamp == 0)
-			{
-
-				Dealloc(pit->second);
-				pm.erase(pit);
-			}
-
+			
+			if (pit->second.timestamp == 0){ obsolate.push_back(pit->first);  }
+		}
+		
+		p_dealloc();
+		for (int i = 0; i < obsolate.size(); i++){
+			pm.erase(obsolate[i]);
 		}
 		
 	}
 
+	//Csinálunk egy ideiglenes map-ot ahol a még aktív védelmi utakhoz tartozó spektrum 1 a lejártat nem vesszeük figyelembe
+	void p_dealloc(){
+		ListGraph::EdgeMap<SpectrumState> temp_map(graph);
+		for (auto pit = pm.begin(); pit != pm.end(); ++pit)
+		{
+			if (pit->second.timestamp > 0)
+			{
+				pathalloc(pit->second.path, temp_map,pit->second.pos,pit->second.width);
+			}
 
+		}
+		
+		ListGraph::EdgeIt eit(graph);
+		for (eit; eit != INVALID; ++eit)
+		{
+			for (int i = 0; i < CH::channel_num; i++)
+			{
+				if (spectrum_map[eit][i] == -1){
+					spectrum_map[eit][i] = temp_map[eit][i];
+				}
+			}
+			
+		}
+	}
+	//adott map-on lefoglalja az igényelt sávot egy path mentén
+	void pathalloc(Path<ListGraph> &path, ListGraph::EdgeMap<SpectrumState> &temp_map,int pos,int width){
+	
+		Path<ListGraph>::ArcIt arc_it(path);
+		for (arc_it; arc_it != INVALID; ++arc_it)
+		{
+			Node t = graph.target(arc_it);
+			Node s = graph.source(arc_it);
+			Edge e = lemon::findEdge(graph, t, s);
+			for (int i = 0; i<width; i++){
+				temp_map[e].carrier[pos + i] = -1;
+			}
+		}
+	}
 };
 
 #endif	

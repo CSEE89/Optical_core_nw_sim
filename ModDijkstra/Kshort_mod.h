@@ -29,7 +29,7 @@ class DefaultAlgorithm{
 public:
 	bool protection_run; // 1 értle jelzi hogy védelmi utat foglalunk-e
 	virtual void run(Node s, Node t, const int &width, const long int &timestamp) = 0;
-	
+	virtual bool calcpath(Node s, Node t, const int &width) = 0;
 
 
 };
@@ -46,7 +46,7 @@ protected:
 	typedef typename GR::template EdgeMap<bool> EdgeFilter_Map;
 	typedef ListGraph::Node Node;
 	typedef ListGraph::Arc Arc;
-	std::vector< vector<int> > &A;
+	std::vector< vector<int> > A;
 	GR &graph;
 
 	class comp{
@@ -59,7 +59,7 @@ protected:
 	std::multiset< vector<int>, comp> _set;
 public:
 
-	KShortestPath(GR &graph, std::vector< vector<int> > &Kshortvec) :graph(graph), A(Kshortvec){}
+	KShortestPath(GR &graph) :graph(graph), A(){}
 
 	bool YenKshort(Node source, Node sink, int K){
 		// Determine the shortest path from the source to the sink.

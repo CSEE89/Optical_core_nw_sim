@@ -27,9 +27,6 @@
     <ClInclude Include="utilities.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stl_out.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SpectrumState.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -55,6 +52,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SharedProtection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="general_traits.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
