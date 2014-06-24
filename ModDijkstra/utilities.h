@@ -30,7 +30,7 @@ using namespace lemon;
 typedef ListGraph::Node Node;
 typedef ListGraph::Edge Edge;
 typedef SubGraph<ListGraph, ListGraph::NodeMap<bool>, ListGraph::EdgeMap<bool> > Subgraph;
-
+class SharedProtection;
  template <typename gr> void test(gr &g)
 {
 	
@@ -77,11 +77,21 @@ public:
 	void setK(int &k){
 		K = k;
 	}
-	void run(Node s, Node t, const int &width, const long int &timestamp){
+	bool run(Node s, Node t, const int &width, const long int &timestamp){
 		A.clear();
 		YenKshort(s, t, K);
-		alloc(width, timestamp);
+		bool switcher=alloc(width, timestamp);
 		A.clear();
+		return switcher;
+	}
+
+	bool calcPath(Node s, Node t, const int &width, SharedProtection &sp){
+		bool switcher = false;
+		A.clear();
+		YenKshort(s, t, K);
+		switcher = alloc2(width,sp);
+		A.clear();
+		return switcher;	
 	}
 
 	//visszaadja a lefoglalt utat
@@ -116,12 +126,11 @@ private:
 	alloc-ban hívódik meg
 	Végiglépked az útvonalakaon ahol van szabad spektrum tmpPath-ba betölti az utat, visszatér ture-val
 	*/
-
 	bool createPath(const int &width, Path<ListGraph> &tmpPath){
 		for (std::vector<std::vector<int> >::const_iterator it = A.begin(); it != A.end(); it++)
 		{
 			tmpPath.clear();
-			
+			//útvonal kinyerés
 			for (int i = 1; i<it->size(); i++)
 			{
 				int j = i - 1;
@@ -130,26 +139,49 @@ private:
 				ListGraph::Arc arc = lemon::findArc(graph, s, t);
 				tmpPath.addBack(arc);
 			}
-			SpectrumState spectrum = global.PathSpectrum(tmpPath); //KOPI KONSTRUKTOR
-			//Path<ListGraph> path(it->first);
-			if (global.checkSelector(width, spectrum))
+			
+			SpectrumState spectrum = global.PathSpectrum(tmpPath); //útvonal sepktruma
+			
+			if (global.checkSelector(width, spectrum)&&!tmpPath.empty())  //alloc_pos beállítás ha van elég spektrum
 			{
-				//tmpPath = (lemon::Path<ListGraph>)pathvec[i];
+				return true;
+			}
+
+		}
+		return false;	
+	}
+
+	bool createPath2(const int &width, Path<ListGraph> &tmpPath,SharedProtection &sp){
+		for (std::vector<std::vector<int> >::const_iterator it = A.begin(); it != A.end(); it++)
+		{
+			tmpPath.clear();
+			//útvonal kinyerés
+			for (int i = 1; i<it->size(); i++)
+			{
+				int j = i - 1;
+				Node s = graph.nodeFromId(it->at(i));
+				Node t = graph.nodeFromId(it->at(j));
+				ListGraph::Arc arc = lemon::findArc(graph, s, t);
+				tmpPath.addBack(arc);
+			}
+
+			SpectrumState spectrum = sp.p_pathSpectrum(tmpPath); //útvonal sepktruma
+
+			if (global.checkSelector(width, spectrum) && !tmpPath.empty())  //alloc_pos beállítás ha van elég spektrum
+			{
 				return true;
 			}
 
 		}
 		return false;
-	
 	}
-
 	/*
 	Meghívja a global.Alloc-ot
 	*/
-	bool alloc(const int &width,const long int &timestamp)
+	bool alloc(const int &width, const long int &timestamp, bool shared = false)
 	{
 		lemon::Path<ListGraph> tmpPath;  //createpath-nak átadva 
-		if(createPath(width,tmpPath))
+		if (createPath(width, tmpPath))
 		{
 			allocated = tmpPath;
 			
@@ -164,7 +196,6 @@ private:
 			return true;
 		}
 		else{
-			GlobalSpectrumState::isblocked = true;
 			if (GlobalSpectrumState::protection_round == false){
 				GlobalSpectrumState::blokknum++;
 			}
@@ -175,6 +206,26 @@ private:
 			return false;
 		}
 	}
+	bool alloc2(const int &width,SharedProtection &sp)
+	{
+		lemon::Path<ListGraph> tmpPath;  //createpath-nak átadva 
+		if (createPath2(width, tmpPath, sp))
+		{
+			allocated = tmpPath;
+			return true;
+		}
+		else{
+			if (GlobalSpectrumState::protection_round == false){
+				GlobalSpectrumState::blokknum++;
+			}
+			else if (GlobalSpectrumState::protection_round == true)
+			{
+				GlobalSpectrumState::protection_blokknum++;
+			}
+			return false;
+		}
+	}
+
 
 };
 
@@ -278,7 +329,8 @@ public:
 			lengthmap->set(it, map[it]);
 		}
 	}
-
+	// Útvonalválasztás shared protectionnak
+	// nem történik spektrumallokálás, csak blokkolás figyelés
 	bool calcpath(Node s, Node t, const int &width)
 	{
 		
@@ -288,7 +340,7 @@ public:
 			//cout << graph.id(eit); spectrum_state[eit].print();
 			//std::cout << std::endl;
 		//}
-		//cout << endl;
+
 		bool switcher = false; // tudunk e allokálni valamelyik út mentén
 		int pos(0);
 		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_state);
@@ -309,19 +361,19 @@ public:
 
 		listpath tmpPath;
 
-		if (createPath(width, tmpPath)){
-			allocated = tmpPath;
-			switcher = true;
+		if (createPath(width, tmpPath)){   //megnézzük, hogy van-e megfelelő ótvonal a halmazban, 
+			allocated = tmpPath;  //ha van elmentjük
+			switcher = true;  // true-val visszatérünk
 		}
 		else{
 			switcher = false;
-			GlobalSpectrumState::isblocked = true;
-			if (GlobalSpectrumState::protection_round == false){
+			allocated.clear();
+			if (GlobalSpectrumState::protection_round == false){  //ha véletelen nem shared protection-al hívtuk akkor is számolunk blokkolást
 				GlobalSpectrumState::blokknum++;
 			}
 			else if (GlobalSpectrumState::protection_round == true)
 			{
-				GlobalSpectrumState::protection_blokknum++;
+				GlobalSpectrumState::protection_blokknum++;  //blokkolás növelése
 			}
 		}
 		this->init();
@@ -330,9 +382,9 @@ public:
 	//\
 			feltölti a _set változót útvonalakkal, oda-vissza fut \
 			createpath -et hívja
-	void run(Node s, Node t, const int &width, const long int &timestamp)
+	bool run(Node s, Node t, const int &width, const long int &timestamp)
 	{
-		int pos(0);
+		//ótvonalak keresése
 		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_state);
 		setperm(width);
 		dijkstra.init();
@@ -350,8 +402,8 @@ public:
 		setfill(pathmap->operator[](s), temp);
 
 		listpath tmpPath;
-
-		if (createPath(width, tmpPath)){
+		
+		if (createPath(width, tmpPath)){ //szabad spektrum keresés,
 			allocated = tmpPath;
 			if (GlobalSpectrumState::protection_round == false){
 				globalspectrum.Alloc(tmpPath, width, timestamp);
@@ -360,9 +412,9 @@ public:
 			{
 				globalspectrum.Alloc(tmpPath, width, timestamp, 3);
 			}
+			return true;
 		}
 		else{
-			GlobalSpectrumState::isblocked = true;
 			if (GlobalSpectrumState::protection_round == false){
 				GlobalSpectrumState::blokknum++;
 			}
@@ -370,8 +422,9 @@ public:
 			{
 				GlobalSpectrumState::protection_blokknum++;
 			}
+			return false;
 		}
-		this->init();
+		
 
 	}
 
@@ -430,7 +483,6 @@ public:
 
 	//\
 	Végigmegyünk az utvonalhalmazon amit megtalált az algoritmus, kiválasztjuk azt az ótvonalat amin az spektrumallokálási módszer talál szabad sávot
-	
 	bool createPath(int width,Path<ListGraph> &tmpPath)
 	{
 		for(std::multiset<pathpair,comp>::iterator it=_set.begin();it!=_set.end();it++)

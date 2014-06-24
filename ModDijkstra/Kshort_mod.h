@@ -28,7 +28,7 @@ class DefaultAlgorithm{
 
 public:
 	bool protection_run; // 1 értle jelzi hogy védelmi utat foglalunk-e
-	virtual void run(Node s, Node t, const int &width, const long int &timestamp) = 0;
+	virtual bool run(Node s, Node t, const int &width, const long int &timestamp) = 0;
 	//virtual bool calcpath(Node s, Node t, const int &width) = 0;
 
 

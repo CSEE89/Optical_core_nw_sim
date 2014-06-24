@@ -76,7 +76,7 @@ public:
 	static int ALLOCMOD;  // lefoglalási strategia
 	static int blokknum;  // blokkolások száma
 	static int protection_blokknum; //védelmi utak blokkolás száma
-	static bool isblocked;  // Az üzemi útnál blokkolást kaptunk-e,  az adott algoritmus állítja true-ra és a GlobalSpectrumState::alloc flase-ra
+	//static bool isblocked;  // Az üzemi útnál blokkolást kaptunk-e,  az adott algoritmus állítja true-ra és a GlobalSpectrumState::alloc flase-ra
 	static bool protection_round; // védelmi e
 	friend class SharedProtection;
 
@@ -174,7 +174,7 @@ public:
 	void Alloc(lemon::Path<ListGraph> &path,const int &width,const long int &timestamp,int index=1)
 	{
 		
-		isblocked = false;
+		
 		int n1,n2;
 		n1=graph.id(graph.source(path.front()));
 		n2=graph.id(graph.source(path.back()));  //itt mért nem target?		
@@ -245,7 +245,8 @@ public:
 	}
 	/*
 	megnézi h van-e ilyen összeköttetés
-	ha van megnézi h van elég szabad spektrum és mellé allokál
+	ha van megnézi h van elég szabad spektrum és mellé allokál,
+	elhelyezi a linket path_matrixban
 	ha nincs szabad spektrum false-al tér vissza
 	*/
 	bool EndToEnd(Node s,Node t,const int &width,const long int &timestamp)
@@ -268,7 +269,10 @@ public:
 		}
 		return false;
 	}
-	bool disjoint_EndToEnd(Node s, Node t, const int &width, const long int &timestamp,Path<ListGraph> &allocated_path)
+	// Megnézzük van e már út a 2 pont között ha van\
+	megnézzük hogy élfüggetlen-e az üzemitől
+
+	bool dedicated_EndToEnd(Node s, Node t, const int &width, const long int &timestamp,Path<ListGraph> &allocated_path)
 	{
 		SpectrumState spectrum;
 		if (!linkcheck(s, t))return false; //linkchek  adott ret-nek utakat
@@ -285,6 +289,7 @@ public:
 		}
 		return false;
 	}
+
 	//Két Path<ListGraph> egyenlő-e ?  IGAZ HA KÜLÖNBÖZNEK\
 	Először működjön jól aztán hatékonyan
 	bool isNodeDisjoint(Path<ListGraph> &p1, Path<ListGraph> &p2){
@@ -542,9 +547,9 @@ public:
 			if (pit->second.timestamp == 0){ obsolate.push_back(pit->first);  }
 		}
 		
-		p_dealloc();
+		p_dealloc(); //spektrumfelszabadítás
 		for (int i = 0; i < obsolate.size(); i++){
-			pm.erase(obsolate[i]);
+			pm.erase(obsolate[i]); //út törlése a mátrixbol
 		}
 		
 	}

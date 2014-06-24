@@ -87,33 +87,54 @@ public:
 			global.protection_blokknum++;
 		}
 	}
-	void run2(Node s, Node t, const int &width, const long int &timestamp){
-		makeModSpectrumMap();
+	void runmoddijkstra(Node s, Node t, const int &width, const long int &timestamp){
+		makeModSpectrumMap();  // az üzemik és üzemivel közös elû üzemik védelme nem használható
 		//printSpectrum(*mod_spectrum_map, graph);
-		makeCostMap();
-		if (proba(s, t,width)){  // spektrumallokálás
-			p_alloc(p_path, width, timestamp, -1);
+		makeCostMap();  // length map a dijkstrahoz ha van elég szabad(megosztható+szabad) kapacitás kisebb a költség
+		if (modDijkstra_routing(s, t, width)){  // ótvonalválasztás
+			p_alloc(p_path, width, timestamp, -1);  //spektrumlefoglalás
 		}
 
 	}
+	void runKshort(Node s, Node t, const int &width, const long int &timestamp,int k0){
+		makeModSpectrumMap();
+		makeCostMap();
+		if (kshort_routing(s, t, width,k0)){  // ótvonalválasztás
+			p_alloc(p_path, width, timestamp, -1);  //spektrumlefoglalás
+		}
+	}
+
 	//Dijkstra
-	Path<ListGraph>  runDijkstra(Node s, Node t){
-		
-	
+	Path<ListGraph>  runDijkstra(Node s, Node t){	
 		Dijkstra<Subgraph,Subgraph::EdgeMap<double> > dijk(*graph,*cost_map);
 		dijk.run(s);
 		return dijk.path(t);
 	}
-	
-	bool proba(Node s, Node t, const int &width){
+	// a runModDijkstra-hoz tartozó útvonalválasztás\
+	ModDijkstra algoritmssal útvonalat keresünk
+	bool modDijkstra_routing(Node s, Node t, const int &width){
 		bool switcher = false;
 		ModDijkstra<Subgraph> md_dijkstra(*graph, *mod_spectrum_map, global);
-		md_dijkstra.initlengthMap(*cost_map);
+		//md_dijkstra.initlengthMap(*cost_map);
 		switcher=md_dijkstra.calcpath(s, t, width);
+		p_path.clear();
 		p_path=md_dijkstra.allocatedPath();	
 		return switcher;
 	}
+	
+	//
+	bool kshort_routing(Node s, Node t, const int &width,int K0){
+		bool switcher = false;
+		Kshort<Subgraph> _ks(*graph, global);
+		_ks.setK(K0);
+		p_path.clear();
+		switcher = _ks.calcPath(s, t, width, *this); //egy útvonalat várunk ha van, és alloc_pos beállítását
+		p_path.clear();
+		p_path = _ks.allocatedPath();
+		return switcher;
+	}
 
+	//ütemi ót módosítása
 	void addAllocated(Path<ListGraph> &alloc){
 		allocated = alloc;
 	}
@@ -157,7 +178,7 @@ public:
 	- 0 használható
 	void makeModSpectrumMap(){
 	
-		//üzemi által használt spektrumok blokkolása
+		//üzemik által használt spektrumok blokkolása
 		for (Subgraph::EdgeIt eit(*graph); eit != INVALID; ++eit){
 			
 				for (int i = 0; i<global.spectrum_map[eit].carrier.size(); i++)
@@ -171,15 +192,15 @@ public:
 			if (!global.isEdgeDisjoint(it->second.path, allocated))
 			{
 						ProtectionPathMatrix tempMatrix = global.pm[it->second.unquie_key];
-						lemon::Path<ListGraph> p_path = tempMatrix.path;
-						denyPath(p_path, tempMatrix.pos, tempMatrix.width);
-			}											
+						lemon::Path<ListGraph> tmp_path = tempMatrix.path;
+						denyPath(tmp_path, tempMatrix.pos, tempMatrix.width);
+			}			
 		}
 		
 
 	}
 
-
+	//ûtvonal spektruma 1
 	void denyPath(lemon::Path<ListGraph> &path, const int &pos, const int &width, int index = 1)
 	{
 
@@ -189,6 +210,7 @@ public:
 			Node t = global.graph.target(arc_it);
 			Node s = global.graph.source(arc_it);
 			Edge e = lemon::findEdge(global.graph, t, s);
+			if (graph->status(e))
 			for (int i = 0; i<width; i++){
 				mod_spectrum_map->operator[](e).carrier[pos + i] = index;
 			}
@@ -207,7 +229,7 @@ public:
 		{
 			Node t = global.graph.target(arc_it);
 			Node s = global.graph.source(arc_it);
-			Edge e = lemon::findEdge(global.graph, t, s);
+			Edge e = lemon::findEdge(*graph, t, s);
 			spectrum.or(mod_spectrum_map->operator[](e));
 
 		}
@@ -222,7 +244,8 @@ public:
 		global.pm[global.global_key] = tempMatrix;
 	}
 
-
+	// A kiválasztott útvonalon a spektrum lefoglalása\
+	GlobalSpectrum::alloc_pos már korábban be lett állítva
 	void p_alloc(lemon::Path<ListGraph> &path, const int &width, const long int &timestamp, int index = 1)
 	{
 			
