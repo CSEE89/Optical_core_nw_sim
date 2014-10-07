@@ -55,8 +55,12 @@ struct PathMatrix{
 	}
 };
 
-
-
+/**
+*Spektrumlefoglalásért felelős osztály
+* Csak egy lehet belőle
+*	tartalmazza a spektrumot 
+*	lefoglalt üzemi és védelmi utakat
+*/
 class GlobalSpectrumState{
 protected:
 	std::vector< std::vector<int> > traffic_matrix; //van e már összeköttetés a 2 pont között, nincs használva
@@ -67,13 +71,13 @@ protected:
 	ListGraph &graph;
 	int n;  //csomópontok száma
 	static int alloc_pos;   //belső tagváltozót váltizatatnak a függvények, innen felfelé lesz lefoglalva a sávszélesség
-	static long int global_time;
+	
 	
 	
 public:
 	ListGraph::EdgeMap<SpectrumState> &spectrum_map;
 	static int global_key;  //protecton_path_matrix key erteke, szerepel path_matrix elemeiben
-	static int ALLOCMOD;  // lefoglalási strategia
+	ALLOC ALLOCMOD;  // lefoglalási strategia
 	static int blokknum;  // blokkolások száma
 	static int protection_blokknum; //védelmi utak blokkolás száma
 	//static bool isblocked;  // Az üzemi útnál blokkolást kaptunk-e,  az adott algoritmus állítja true-ra és a GlobalSpectrumState::alloc flase-ra
@@ -89,6 +93,32 @@ public:
 			{
 				traffic_matrix.push_back(tmp);
 			}
+	}
+
+	/**
+	*Az osztály alaphelyzetbe állítása
+	*/
+	void clear()
+	{
+		traffic_matrix.clear();
+		std::vector<int> tmp(n, 0);
+		for (int i = 0; i<n; i++)
+		{
+			traffic_matrix.push_back(tmp);
+		}
+		path_matrix.clear();
+		pm.clear();
+		std::pair <std::multimap<int, PathMatrix>::iterator, std::multimap<int, PathMatrix>::iterator> nul;
+		end2end_paths = nul;
+		alloc_pos = 0;
+		SpectrumState s;
+		for (ListGraph::EdgeIt it(graph); it != INVALID; ++it)
+		{
+			spectrum_map[it] = s;
+		}
+		global_key = 0;
+		blokknum = 0;
+		protection_blokknum = 0;	
 	}
 	//Allocól hívva beteszi az utat path_matrixba
 	void insertPath(lemon::Path<ListGraph> &path,const int &width,const int &pos,const long int &timestamp)
@@ -146,9 +176,9 @@ public:
 		}
 
 	}
-	/*
-	Létezik-e már link a 2 pont között
-
+	/**
+	*Létezik-e már link a 2 pont között
+	*ha igen azokat elmenti end2end_paths változóba
 	*/
 	bool linkcheck(Node start,Node end)
 	{

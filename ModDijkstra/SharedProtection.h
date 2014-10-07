@@ -74,7 +74,10 @@ public:
 		}		
 	}
 
-	// algoritmus futtatása, hvja a többi függvényt
+	/** Algoritmus futtatása
+	* dijktra algorikmussal történik a védelmi út választása
+	*/
+	//DEPRECATED
 	void run(Node s, Node t, const int &width, const long int &timestamp){
 		makeModSpectrumMap();  
 		makeCostMap();
@@ -87,6 +90,9 @@ public:
 			global.protection_blokknum++;
 		}
 	}
+	/** ALgoritmus futtatása
+	*  Módosított dijkstra algoritmussal útválasztás
+	*/
 	void runmoddijkstra(Node s, Node t, const int &width, const long int &timestamp){
 		makeModSpectrumMap();  // az üzemik és üzemivel közös elû üzemik védelme nem használható
 		//printSpectrum(*mod_spectrum_map, graph);
@@ -96,6 +102,9 @@ public:
 		}
 
 	}
+	/** ALgoritmus futtatása
+	*  K legrövidebb út algoritmussal útválasztás
+	*/
 	void runKshort(Node s, Node t, const int &width, const long int &timestamp,int k0){
 		makeModSpectrumMap();
 		makeCostMap();

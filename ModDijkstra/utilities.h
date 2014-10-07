@@ -268,6 +268,8 @@ public:
 
 };
 
+// komparátor osztály: útvonalakat hasonlít össze hossz szerint
+
 class comp{
 public:
 	bool operator()(const pathpair &a, const pathpair &b)
@@ -275,6 +277,10 @@ public:
 		return a.first.length() < b.first.length();
 	}
 };
+
+/**
+ModDijkstra osztály, az algoritmus a LEMON módosított Dijktra osztályra épül
+*/
 // NEW-t tartalmazó osztályokba másoló konstrzktor és op= KELL
 template <typename T> class ModDijkstra: public DefaultAlgorithm
  {
@@ -329,17 +335,14 @@ public:
 			lengthmap->set(it, map[it]);
 		}
 	}
-	// Útvonalválasztás shared protectionnak
+	//Shared protection által meghívva 
+	//Útvonalválasztás shared protectionnak
 	// nem történik spektrumallokálás, csak blokkolás figyelés
 	bool calcpath(Node s, Node t, const int &width)
 	{
 		
 		GR::EdgeIt eit(graph);
-		//for (eit; eit != INVALID; ++eit)
-		//{
-			//cout << graph.id(eit); spectrum_state[eit].print();
-			//std::cout << std::endl;
-		//}
+
 
 		bool switcher = false; // tudunk e allokálni valamelyik út mentén
 		int pos(0);
@@ -379,9 +382,9 @@ public:
 		this->init();
 		return switcher;
 	}
-	//\
-			feltölti a _set változót útvonalakkal, oda-vissza fut \
-			createpath -et hívja
+	//\  Futtatás
+	//	feltölti a _set változót útvonalakkal, oda-vissza fut \
+	//		createpath -et hívja
 	bool run(Node s, Node t, const int &width, const long int &timestamp)
 	{
 		//ótvonalak keresése
