@@ -132,7 +132,7 @@ public:
 		SpectrumState s;
 		for (ListGraph::EdgeIt it(*graph); it != INVALID; ++it)
 		{
-			spectrum_map[it] = s;
+			spectrum_map->operator[](it) = s;
 		}
 		global_key = 0;
 		blokknum = 0;
@@ -233,7 +233,7 @@ public:
 				Node s=graph->source(arc_it);
 				Edge e=lemon::findEdge(*graph,t,s);
 			for(int i=0;i<width;i++){
-			spectrum_map[e].carrier[alloc_pos+i]=index;
+			spectrum_map->operator[](e).carrier[alloc_pos+i]=index;
 			}
 		}
 		if(n2>=n1){int tmp=n1; n1=n2; n2=tmp;}
@@ -254,7 +254,7 @@ public:
 				Edge e=lemon::findEdge(*graph,t,s);
 				for(int i=0;i<matrix.width;i++)
 			{
-				spectrum_map[e].carrier[matrix.pos+i]=0;
+				spectrum_map->operator[](e).carrier[matrix.pos+i]=0;
 			}
 		}		
 	}
@@ -271,7 +271,7 @@ public:
 			Edge e = lemon::findEdge(*graph, t, s);
 			for (int i = 0; i<matrix.width; i++)
 			{
-				spectrum_map[e].carrier[matrix.pos + i] = 0;
+				spectrum_map->operator[](e).carrier[matrix.pos + i] = 0;
 			}
 		}
 	}
@@ -286,7 +286,7 @@ public:
 				Node t=graph->target(arc_it);
 				Node s=graph->source(arc_it);
 				Edge e=lemon::findEdge(*graph,t,s);
-				spectrum.or( spectrum_map[e]);
+				spectrum.or( spectrum_map->operator[](e));
 			
 		}
 		return spectrum;
@@ -619,8 +619,8 @@ public:
 		{
 			for (int i = 0; i < CH::channel_num; i++)
 			{
-				if (spectrum_map[eit][i] == -1){
-					spectrum_map[eit][i] = temp_map[eit][i];
+				if (spectrum_map->operator[](eit)[i] == -1){
+					spectrum_map->operator[](eit)[i] = temp_map[eit][i];
 				}
 			}
 			

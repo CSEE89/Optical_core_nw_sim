@@ -3,7 +3,6 @@
 #include"SharedProtection.h"
 #include<lemon/random.h>
 #define REQUESTS 1000
-//#include"Dijkstraplus.h"
 
 using namespace std;
 using namespace lemon;
@@ -20,7 +19,10 @@ using namespace lemon;
 *
 */
 
+class cs {
 
+	int a;
+};
 bool GlobalSpectrumState::protection_round(false);
 int GlobalSpectrumState::alloc_pos(0);
 int GlobalSpectrumState::global_key(0);
@@ -161,7 +163,7 @@ void simulationDedicatedModdijk(ListGraph &graph, Random &random)
 				if (!GlobalSpectrumState::getInstance().EndToEnd(s1, t1, width1, dur))
 				{
 					GlobalSpectrumState::protection_round = false;
-					ModDijkstra<ListGraph> md_dijkstra(graph, globalspectrum);
+					ModDijkstra<ListGraph> md_dijkstra(graph);
 					if (md_dijkstra.run(s1, t1, width1, dur))
 					{
 						allocated = md_dijkstra.allocatedPath();
@@ -169,12 +171,12 @@ void simulationDedicatedModdijk(ListGraph &graph, Random &random)
 					else{ throw "Uzemi blokkolas"; }
 
 				}
-				if (!globalspectrum.dedicated_EndToEnd(s1, t1, width1, dur, allocated))
+				if (!GlobalSpectrumState::getInstance().dedicated_EndToEnd(s1, t1, width1, dur, allocated))
 				{
 					GlobalSpectrumState::protection_round = true;
 					SubgraphMaker makesub(graph, allocated);
 					Subgraph *subgraph = makesub.make();
-					ModDijkstra<Subgraph> md_dijkstra1(*subgraph, spectrum_map, globalspectrum);
+					ModDijkstra<Subgraph> md_dijkstra1(*subgraph);
 					md_dijkstra1.run(s1, t1, width1, dur);
 
 				}
@@ -182,7 +184,7 @@ void simulationDedicatedModdijk(ListGraph &graph, Random &random)
 			catch (char* c)
 			{
 			}
-			globalspectrum.TimeCheck();
+			GlobalSpectrumState::getInstance().TimeCheck();
 		}
 
 	}
@@ -193,7 +195,7 @@ void simulationDedicatedModdijk(ListGraph &graph, Random &random)
 }
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void simulationSharedKshort(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &spectrum_map, GlobalSpectrumState &globalspectrum, Random &random)
+void simulationSharedKshort(ListGraph &graph, Random &random)
 {
 	GlobalSpectrumState::blokknum = 0;
 	GlobalSpectrumState::protection_blokknum = 0;
@@ -207,7 +209,7 @@ void simulationSharedKshort(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> 
 		cout << "K0" << K0 << endl;
 		GlobalSpectrumState::blokknum = 0;
 		GlobalSpectrumState::protection_blokknum = 0;
-		globalspectrum.clear();
+		GlobalSpectrumState::getInstance().clear();
 		for (int i2 = 0; i2<REQUESTS; i2++)
 		{
 			Path<ListGraph> allocated;
@@ -220,10 +222,10 @@ void simulationSharedKshort(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> 
 			allocated.clear();
 			if (n1 != n2&&dur>0){
 				try{
-					if (!globalspectrum.EndToEnd(s1, t1, width1, dur))
+					if (!GlobalSpectrumState::getInstance().EndToEnd(s1, t1, width1, dur))
 					{
 						GlobalSpectrumState::protection_round = false;
-						Kshort<ListGraph> _ks(graph, globalspectrum);
+						Kshort<ListGraph> _ks(graph);
 						_ks.setK(K0);
 						if (_ks.run(s1, t1, width1, dur))
 						{
@@ -232,13 +234,13 @@ void simulationSharedKshort(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> 
 						else{ throw "Uzemi blokkolas"; }
 					}
 					GlobalSpectrumState::protection_round = true;
-					SharedProtection shared_protection(globalspectrum, allocated);
+					SharedProtection shared_protection(allocated);
 					shared_protection.runKshort(s1, t1, width1, dur, K0);
 				}
 				catch (char* c)
 				{
 				}
-				globalspectrum.TimeCheck();
+				GlobalSpectrumState::getInstance().TimeCheck();
 			}
 		}
 		cout << "Kshor blokkolas" << GlobalSpectrumState::blokknum << endl;
@@ -246,7 +248,7 @@ void simulationSharedKshort(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> 
 	}
 }
 
-void simulationSharedModdijkstra(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &spectrum_map, GlobalSpectrumState &globalspectrum, Random &random)
+void simulationSharedModdijkstra(ListGraph &graph, Random &random)
 {
 	GlobalSpectrumState::blokknum = 0;
 	GlobalSpectrumState::protection_blokknum = 0;
@@ -266,10 +268,10 @@ void simulationSharedModdijkstra(ListGraph &graph, ListGraph::EdgeMap<SpectrumSt
 		allocated.clear();
 		if (n1 != n2&&dur>0){
 			try{
-				if (!globalspectrum.EndToEnd(s1, t1, width1, dur))
+				if (!GlobalSpectrumState::getInstance().EndToEnd(s1, t1, width1, dur))
 				{
 					GlobalSpectrumState::protection_round = false;
-					ModDijkstra<ListGraph> md_dijkstra(graph, globalspectrum);
+					ModDijkstra<ListGraph> md_dijkstra(graph);
 					if (md_dijkstra.run(s1, t1, width1, dur))
 					{
 						allocated = md_dijkstra.allocatedPath();
@@ -277,13 +279,13 @@ void simulationSharedModdijkstra(ListGraph &graph, ListGraph::EdgeMap<SpectrumSt
 					else{ throw "Uzemi blokkolas"; }
 				}
 				GlobalSpectrumState::protection_round = true;
-				SharedProtection shared_protection(globalspectrum, allocated);
+				SharedProtection shared_protection( allocated);
 				shared_protection.runmoddijkstra(s1, t1, width1, dur);
 			}
 			catch (char* c)
 			{
 			}
-			globalspectrum.TimeCheck();
+			GlobalSpectrumState::getInstance().TimeCheck();
 		}
 	}
 	//printSpectrum(spectrum_map, graph);

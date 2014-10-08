@@ -289,7 +289,7 @@ template <typename T> class ModDijkstra: public DefaultAlgorithm
   pMap* permittingmap; //
   path_Map *pathmap; //tárolja a nodeokban a dijkstra futás során tárolt értékeketet, útvonalak, és ahhoz tartozó spektrum
   GR &graph;
-  ListGraph::EdgeMap<SpectrumState> &spectrum_state;  //globális spektrum
+  ListGraph::EdgeMap<SpectrumState> &spectrum_map;  //globális spektrum
   std::multiset<pathpair,comp> _set;  //a két csomópont között megtalált útvonalak hossz szerint, (2 szer fut a dijkstra a 2 irányra ezeket pakolja bele)
   Path<GR> allocated;
   cost_Map* lengthmap;
@@ -297,7 +297,7 @@ template <typename T> class ModDijkstra: public DefaultAlgorithm
 public:
 	friend class MakeSubgraph;
 	
-	ModDijkstra(GR &_graph, ListGraph::EdgeMap<SpectrumState> &sp) :graph(_graph), spectrum_state(GlobalSpectrumState::getInstance().s)
+	ModDijkstra(GR &_graph, ListGraph::EdgeMap<SpectrumState> &sp) :graph(_graph), spectrum_map(sp)
 	{
 		MapFactory<GR> mapf;
 		permittingmap = mapf.createPermittingmap(graph);
@@ -307,7 +307,7 @@ public:
 			lengthmap->set(it, 1);
 		}
 	}
-	ModDijkstra(GR &_graph) :graph(_graph), spectrum_state(gs.spectrum_map) 
+	ModDijkstra(GR &_graph) :graph(_graph), spectrum_map(*GlobalSpectrumState::getInstance().spectrum_map)
 	{
 		MapFactory<GR> mapf;
 		permittingmap = mapf.createPermittingmap(graph);
@@ -342,7 +342,7 @@ public:
 
 		bool switcher = false; // tudunk e allokálni valamelyik út mentén
 		int pos(0);
-		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_state);
+		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_map);
 		setperm(width);
 		dijkstra.init();	
 		dijkstra.modaddSource(s, *pathmap);
@@ -384,7 +384,7 @@ public:
 	bool run(Node s, Node t, const int &width, const long int &timestamp)
 	{
 		//ótvonalak keresése
-		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_state);
+		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_map);
 		setperm(width);
 		dijkstra.init();
 		dijkstra.modaddSource(s, *pathmap);
@@ -405,11 +405,11 @@ public:
 		if (createPath(width, tmpPath)){ //szabad spektrum keresés,
 			allocated = tmpPath;
 			if (GlobalSpectrumState::protection_round == false){
-				globalspectrum.Alloc(tmpPath, width, timestamp);
+				GlobalSpectrumState::getInstance().Alloc(tmpPath, width, timestamp);
 			}
 			else if (GlobalSpectrumState::protection_round == true)
 			{
-				globalspectrum.Alloc(tmpPath, width, timestamp, 3);
+				GlobalSpectrumState::getInstance().Alloc(tmpPath, width, timestamp, 3);
 			}
 			return true;
 		}
@@ -476,7 +476,7 @@ public:
 	{
 		for(GR::EdgeIt it(graph);it!=INVALID;++it) //végigjárjuk az összes élet és megnézzük van e elég hely
 		{
-			permittingmap->operator[](it)=GlobalSpectrumState::SetPermittingMap(width,spectrum_state[it]);
+			permittingmap->operator[](it)=GlobalSpectrumState::SetPermittingMap(width,spectrum_map[it]);
 		}
 	}
 
@@ -489,7 +489,7 @@ public:
 			
 			SpectrumState spectrum(it->second); //KOPI KONSTRUKTOR
 			
-			if(globalspectrum.checkSelector(width,spectrum))
+			if (GlobalSpectrumState::getInstance().checkSelector(width, spectrum))
 			{
 				tmpPath=(lemon::Path<ListGraph>)it->first;
 				return true;
