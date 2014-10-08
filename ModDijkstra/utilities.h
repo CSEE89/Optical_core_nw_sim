@@ -63,14 +63,11 @@ public:
 K-shortest path algoritmus beállítása
 */
 template<typename GR>class Kshort : public KShortestPath<GR>, public DefaultAlgorithm{
-	//const std::vector< std::vector<int> > &Kshortvec; //
-	//const ListGraph &graph;  //main-ben lévő globális gráf
-	GlobalSpectrumState &global;
 	Path<GR> allocated;
 	int K;
 public:
 	friend class MakeSubgraph;
-	Kshort(GR &graph, GlobalSpectrumState &global) :KShortestPath(graph), global(global)
+	Kshort(GR &graph) :KShortestPath(graph)
 	{
 		
 	}
@@ -140,9 +137,9 @@ private:
 				tmpPath.addBack(arc);
 			}
 			
-			SpectrumState spectrum = global.PathSpectrum(tmpPath); //útvonal sepktruma
+			SpectrumState spectrum = GlobalSpectrumState::getInstance().PathSpectrum(tmpPath); //útvonal sepktruma
 			
-			if (global.checkSelector(width, spectrum)&&!tmpPath.empty())  //alloc_pos beállítás ha van elég spektrum
+			if (GlobalSpectrumState::getInstance().checkSelector(width, spectrum) && !tmpPath.empty())  //alloc_pos beállítás ha van elég spektrum
 			{
 				return true;
 			}
@@ -167,7 +164,7 @@ private:
 
 			SpectrumState spectrum = sp.p_pathSpectrum(tmpPath); //útvonal sepktruma
 
-			if (global.checkSelector(width, spectrum) && !tmpPath.empty())  //alloc_pos beállítás ha van elég spektrum
+			if (GlobalSpectrumState::getInstance().checkSelector(width, spectrum) && !tmpPath.empty())  //alloc_pos beállítás ha van elég spektrum
 			{
 				return true;
 			}
@@ -187,11 +184,11 @@ private:
 			
 
 			if (GlobalSpectrumState::protection_round == false){
-				global.Alloc(tmpPath, width, timestamp);
+				GlobalSpectrumState::getInstance().Alloc(tmpPath, width, timestamp);
 			}
 			else if (GlobalSpectrumState::protection_round == true)
 			{
-				global.Alloc(tmpPath, width, timestamp,3);
+				GlobalSpectrumState::getInstance().Alloc(tmpPath, width, timestamp, 3);
 			}
 			return true;
 		}
@@ -294,14 +291,13 @@ template <typename T> class ModDijkstra: public DefaultAlgorithm
   GR &graph;
   ListGraph::EdgeMap<SpectrumState> &spectrum_state;  //globális spektrum
   std::multiset<pathpair,comp> _set;  //a két csomópont között megtalált útvonalak hossz szerint, (2 szer fut a dijkstra a 2 irányra ezeket pakolja bele)
-  GlobalSpectrumState &globalspectrum;
   Path<GR> allocated;
   cost_Map* lengthmap;
 
 public:
 	friend class MakeSubgraph;
 	
-	ModDijkstra(GR &_graph,ListGraph::EdgeMap<SpectrumState> &sp,GlobalSpectrumState &gs):graph(_graph),spectrum_state(sp),globalspectrum(gs)
+	ModDijkstra(GR &_graph, ListGraph::EdgeMap<SpectrumState> &sp) :graph(_graph), spectrum_state(GlobalSpectrumState::getInstance().s)
 	{
 		MapFactory<GR> mapf;
 		permittingmap = mapf.createPermittingmap(graph);
@@ -311,7 +307,7 @@ public:
 			lengthmap->set(it, 1);
 		}
 	}
-	ModDijkstra(GR &_graph, GlobalSpectrumState &gs) :graph(_graph), spectrum_state(gs.spectrum_map), globalspectrum(gs)
+	ModDijkstra(GR &_graph) :graph(_graph), spectrum_state(gs.spectrum_map) 
 	{
 		MapFactory<GR> mapf;
 		permittingmap = mapf.createPermittingmap(graph);

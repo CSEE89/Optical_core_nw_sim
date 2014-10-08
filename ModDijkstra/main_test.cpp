@@ -2,7 +2,7 @@
 #include"utilities.h"
 #include"SharedProtection.h"
 #include<lemon/random.h>
-#define REQUESTS 100
+#define REQUESTS 1000
 //#include"Dijkstraplus.h"
 
 using namespace std;
@@ -30,9 +30,9 @@ int GlobalSpectrumState::protection_blokknum(0);
 
 int CH::channel_num(35);
 
-void simulationDedicatedModdijk(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &spectrum_map, GlobalSpectrumState &globalspectrum, Random &random);
-void simulationSharedKshort(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &spectrum_map, GlobalSpectrumState &globalspectrum, Random &random);
-void simulationSharedModdijkstra(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &spectrum_map, GlobalSpectrumState &globalspectrum, Random &random);
+void simulationDedicatedModdijk(ListGraph &graph,  Random &random);
+void simulationSharedKshort(ListGraph &graph,  Random &random);
+void simulationSharedModdijkstra(ListGraph &graph, Random &random);
 int main() {
 
 	int ch_num_tomb[] = { 60, 50, 60 };
@@ -48,10 +48,10 @@ int main() {
 			graphReader(graph, "28_eu.lgf").run(); //.edgeMap("cost",lengthmap)
 			ListGraph::EdgeMap<int> lengthmap(graph);
 			ListGraph::EdgeMap<bool> permittingmap(graph);
-			ListGraph::EdgeMap<SpectrumState> spectrum_map(graph);  //gráf spektruma
-			GlobalSpectrumState globalspectrum(graph, spectrum_map);  // globál spectrum, allokállás menedzselése
-			globalspectrum.ALLOCMOD = OneSideChannelFill;   // spektrul foglalási strat beállítása
-
+			
+			GlobalSpectrumState::getInstance().setGraph(graph);  // globál spectrum, allokállás menedzselése
+			GlobalSpectrumState::getInstance().ALLOCMOD = OneSideChannelFill;   // spektrul foglalási strat beállítása
+			
 			Deparallel para;
 			para(graph);
 			GlobalSpectrumState::blokknum = 0;    // bolokkolások számát tároló változó incializálása
@@ -68,14 +68,15 @@ int main() {
 			/**
 			* Módosított dijkstra algoritmussal futó üzemi és védelmi útválasztás szimulációja
 			*/
-			simulationDedicatedModdijk(graph, spectrum_map, globalspectrum, random); /// módosított dijkstra
+			simulationDedicatedModdijk(graph, random); /// módosított dijkstra
 				//Globalspectrum visszaállítása kezdeti állapotba
-			globalspectrum.clear();
-			simulationSharedModdijkstra(graph, spectrum_map, globalspectrum, random);
-
+			GlobalSpectrumState::getInstance().clear();
+			simulationSharedModdijkstra(graph,  random);
+			GlobalSpectrumState::getInstance().clear();
+			simulationSharedKshort(graph, random);
 			/**Kshortest
 			*/
-			/*
+			GlobalSpectrumState::getInstance().clear();
 			int tomb[] = { 1, 2, 5, 10, 20 };
 			for (int ii = 0; ii < 5; ii++)
 			{
@@ -83,6 +84,7 @@ int main() {
 				std::cout << "K0" << K0 << endl;
 				GlobalSpectrumState::blokknum = 0;
 				GlobalSpectrumState::protection_blokknum = 0;
+				GlobalSpectrumState::getInstance().clear();
 				for (int i2 = 0; i2<REQUESTS; i2++)
 				{
 					Path<ListGraph> allocated;  /// lefoglalt üzemi út
@@ -95,10 +97,10 @@ int main() {
 					allocated.clear();
 					if (n1 != n2&&dur>0){
 						try{
-							if (!globalspectrum.EndToEnd(s1, t1, width1, dur))
+							if (!GlobalSpectrumState::getInstance().EndToEnd(s1, t1, width1, dur))
 							{
 								GlobalSpectrumState::protection_round = false;
-								Kshort<ListGraph> _ks(graph, globalspectrum);
+								Kshort<ListGraph> _ks(graph);
 								_ks.setK(K0);
 								if (_ks.run(s1, t1, width1, dur))
 								{
@@ -107,12 +109,12 @@ int main() {
 								else{ throw "Uzemi blokkolas"; }
 
 							}
-							if (!globalspectrum.dedicated_EndToEnd(s1, t1, width1, dur, allocated))
+							if (!GlobalSpectrumState::getInstance().dedicated_EndToEnd(s1, t1, width1, dur, allocated))
 							{
 								GlobalSpectrumState::protection_round = true;
 								SubgraphMaker makesub(graph, allocated);
 								Subgraph *subgraph = makesub.make();
-								Kshort<Subgraph> _ks(*subgraph, globalspectrum);
+								Kshort<Subgraph> _ks(*subgraph);
 								_ks.setK(K0);
 								_ks.run(s1, t1, width1, dur);
 							}
@@ -121,20 +123,20 @@ int main() {
 						{
 
 						}
-						globalspectrum.TimeCheck();
+						GlobalSpectrumState::getInstance().TimeCheck();
 					}
 				}
 				std::cout << "Kshor blokkolas" << GlobalSpectrumState::blokknum << endl;
 				std::cout << "vedelmi blokkolas" << GlobalSpectrumState::protection_blokknum << endl;
 			}
-			*/
+		
 	return 0;
 }
 
 /**
 * Módosított dijkstra algoritmussal futó üzemi és védelmi útválasztás szimulációja
 */
-void simulationDedicatedModdijk(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &spectrum_map, GlobalSpectrumState &globalspectrum, Random &random)
+void simulationDedicatedModdijk(ListGraph &graph, Random &random)
 {
 	long int dursum(0), durcnt(0);
 	int n1(0), n2(0), width1(0), k(0); long int dur = 0;
@@ -156,7 +158,7 @@ void simulationDedicatedModdijk(ListGraph &graph, ListGraph::EdgeMap<SpectrumSta
 		allocated.clear();
 		if (n1 != n2&&dur>0){
 			try{
-				if (!globalspectrum.EndToEnd(s1, t1, width1, dur))
+				if (!GlobalSpectrumState::getInstance().EndToEnd(s1, t1, width1, dur))
 				{
 					GlobalSpectrumState::protection_round = false;
 					ModDijkstra<ListGraph> md_dijkstra(graph, globalspectrum);
@@ -179,7 +181,6 @@ void simulationDedicatedModdijk(ListGraph &graph, ListGraph::EdgeMap<SpectrumSta
 			}
 			catch (char* c)
 			{
-
 			}
 			globalspectrum.TimeCheck();
 		}
@@ -206,6 +207,7 @@ void simulationSharedKshort(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> 
 		cout << "K0" << K0 << endl;
 		GlobalSpectrumState::blokknum = 0;
 		GlobalSpectrumState::protection_blokknum = 0;
+		globalspectrum.clear();
 		for (int i2 = 0; i2<REQUESTS; i2++)
 		{
 			Path<ListGraph> allocated;

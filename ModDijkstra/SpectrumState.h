@@ -68,14 +68,26 @@ protected:
 	std::multimap<int,PathMatrix> path_matrix;// tárolja a két pont közötti összeköttetések útvonalait, spektrum pozicióját és szélességét, az összes meglévő link itt van, minden 2 ponthoz
 	std::map<int, ProtectionPathMatrix> pm;  //védelmi utak
 	std::pair <std::multimap<int,PathMatrix>::iterator, std::multimap<int,PathMatrix>::iterator> end2end_paths;//EndToEnd-ben
-	ListGraph &graph;
+	ListGraph *graph;
 	int n;  //csomópontok száma
-	static int alloc_pos;   //belső tagváltozót váltizatatnak a függvények, innen felfelé lesz lefoglalva a sávszélesség
+	static int alloc_pos;   ///belső tagváltozót váltizatatnak a függvények, innen felfelé(nagybb indexű) lesz lefoglalva a sávszélesség
 	
-	
+private:
+	GlobalSpectrumState() {
+		
+	}
+	GlobalSpectrumState(const GlobalSpectrumState& g);
+	GlobalSpectrumState(GlobalSpectrumState& g){}
+	GlobalSpectrumState& operator=(GlobalSpectrumState const&){}
+	//GlobalSpectrumState(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &map) :graph(graph), spectrum_map(map), path_matrix(), end2end_paths()
+
+	~GlobalSpectrumState(){
+		//delete graph;
+		delete spectrum_map;
+	}
 	
 public:
-	ListGraph::EdgeMap<SpectrumState> &spectrum_map;
+	ListGraph::EdgeMap<SpectrumState> *spectrum_map;
 	static int global_key;  //protecton_path_matrix key erteke, szerepel path_matrix elemeiben
 	ALLOC ALLOCMOD;  // lefoglalási strategia
 	static int blokknum;  // blokkolások száma
@@ -83,18 +95,24 @@ public:
 	//static bool isblocked;  // Az üzemi útnál blokkolást kaptunk-e,  az adott algoritmus állítja true-ra és a GlobalSpectrumState::alloc flase-ra
 	static bool protection_round; // védelmi e
 	friend class SharedProtection;
-
-	GlobalSpectrumState(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &map) :graph(graph), spectrum_map(map), path_matrix(), end2end_paths()
-	{
-		
-		n=lemon::countNodes(graph);
-		std::vector<int> tmp(n,0);
-		for(int i=0;i<n;i++)
-			{
-				traffic_matrix.push_back(tmp);
-			}
+	/**
+	* Singleton getInstance osztálya, így érjük el az objektumot
+	*/
+	static GlobalSpectrumState &getInstance(){
+		static GlobalSpectrumState instance;
+		return instance;
 	}
+	void setGraph(ListGraph &graph){
+		this->graph = &graph;
+		spectrum_map = new ListGraph::EdgeMap<SpectrumState>(graph);
 
+		n = lemon::countNodes(graph);
+		std::vector<int> tmp(n, 0);
+		for (int i = 0; i<n; i++)
+		{
+			traffic_matrix.push_back(tmp);
+		}
+	}
 	/**
 	*Az osztály alaphelyzetbe állítása
 	*/
@@ -112,7 +130,7 @@ public:
 		end2end_paths = nul;
 		alloc_pos = 0;
 		SpectrumState s;
-		for (ListGraph::EdgeIt it(graph); it != INVALID; ++it)
+		for (ListGraph::EdgeIt it(*graph); it != INVALID; ++it)
 		{
 			spectrum_map[it] = s;
 		}
@@ -125,10 +143,10 @@ public:
 	{
 		global_key++;
 		int key(0),s(0),t(0);		
-		ListGraph::Node start=graph.source(path.front());
-		ListGraph::Node end=graph.target(path.back());;
-		s=graph.id(start);
-		t=graph.id(end);
+		ListGraph::Node start=graph->source(path.front());
+		ListGraph::Node end=graph->target(path.back());;
+		s=graph->id(start);
+		t=graph->id(end);
 		if(s>t){int tmp=s;s=t;t=tmp;}
 		key=s*(n-1)+t;
 		PathMatrix tempMatrix(global_key, path, pos, width, timestamp);
@@ -141,10 +159,10 @@ public:
 		lemon::Path<ListGraph> path; 
 		path=pm.path;
 			std::cout<<"[";
-			  PathNodeIt<Path<ListGraph> > PN(graph,path);
+			  PathNodeIt<Path<ListGraph> > PN(*graph,path);
 			for(PN;PN!=INVALID;PN++)
 				{
-					std::cout<<", "<<graph.id(PN);
+					std::cout<<", "<<graph->id(PN);
 				}
 			
 		 std::cout<<"]";
@@ -156,8 +174,8 @@ public:
 	void printlinks(Node start,Node end)
 	{
 		int key(0),s(0),t(0);
-		s=graph.id(start);
-		t=graph.id(end);
+		s=graph->id(start);
+		t=graph->id(end);
 		if(s>t){int tmp=s;s=t;t=tmp;}
 		key=s*(n-1)+t;
 		
@@ -183,8 +201,8 @@ public:
 	bool linkcheck(Node start,Node end)
 	{
 		int key(0),s(0),t(0);  //key a path_matrix elemeit jelöli ki
-		s=graph.id(start);
-		t=graph.id(end);
+		s=graph->id(start);
+		t=graph->id(end);
 		if(s>t){int tmp=s;s=t;t=tmp;}
 		key=s*(n-1)+t; 
 		if(path_matrix.count(key))
@@ -206,14 +224,14 @@ public:
 		
 		
 		int n1,n2;
-		n1=graph.id(graph.source(path.front()));
-		n2=graph.id(graph.source(path.back()));  //itt mért nem target?		
+		n1=graph->id(graph->source(path.front()));
+		n2=graph->id(graph->source(path.back()));  //itt mért nem target?		
 		Path<ListGraph>::ArcIt arc_it(path);
 		for(arc_it;arc_it!=INVALID;++arc_it)
 		{
-				Node t=graph.target(arc_it);
-				Node s=graph.source(arc_it);
-				Edge e=lemon::findEdge(graph,t,s);
+				Node t=graph->target(arc_it);
+				Node s=graph->source(arc_it);
+				Edge e=lemon::findEdge(*graph,t,s);
 			for(int i=0;i<width;i++){
 			spectrum_map[e].carrier[alloc_pos+i]=index;
 			}
@@ -231,9 +249,9 @@ public:
 		Path<ListGraph>::ArcIt arc_it(matrix.path);
 		for(arc_it;arc_it!=INVALID;++arc_it)
 		{
-				Node t=graph.target(arc_it);
-				Node s=graph.source(arc_it);
-				Edge e=lemon::findEdge(graph,t,s);
+				Node t=graph->target(arc_it);
+				Node s=graph->source(arc_it);
+				Edge e=lemon::findEdge(*graph,t,s);
 				for(int i=0;i<matrix.width;i++)
 			{
 				spectrum_map[e].carrier[matrix.pos+i]=0;
@@ -248,9 +266,9 @@ public:
 		Path<ListGraph>::ArcIt arc_it(matrix.path);
 		for (arc_it; arc_it != INVALID; ++arc_it)
 		{
-			Node t = graph.target(arc_it);
-			Node s = graph.source(arc_it);
-			Edge e = lemon::findEdge(graph, t, s);
+			Node t = graph->target(arc_it);
+			Node s = graph->source(arc_it);
+			Edge e = lemon::findEdge(*graph, t, s);
 			for (int i = 0; i<matrix.width; i++)
 			{
 				spectrum_map[e].carrier[matrix.pos + i] = 0;
@@ -265,9 +283,9 @@ public:
 		Path<ListGraph>::ArcIt arc_it(path);
 		for(arc_it;arc_it!=INVALID;++arc_it)
 		{
-				Node t=graph.target(arc_it);
-				Node s=graph.source(arc_it);
-				Edge e=lemon::findEdge(graph,t,s);
+				Node t=graph->target(arc_it);
+				Node s=graph->source(arc_it);
+				Edge e=lemon::findEdge(*graph,t,s);
 				spectrum.or( spectrum_map[e]);
 			
 		}
@@ -324,33 +342,33 @@ public:
 	Először működjön jól aztán hatékonyan
 	bool isNodeDisjoint(Path<ListGraph> &p1, Path<ListGraph> &p2){
 		if (p1.length() != p2.length()) return true;
-		PathNodeIt<Path<ListGraph> > pnit1(graph, p1);
-		PathNodeIt<Path<ListGraph> > pnit2(graph, p2);
+		PathNodeIt<Path<ListGraph> > pnit1(*graph, p1);
+		PathNodeIt<Path<ListGraph> > pnit2(*graph, p2);
 		std::set<int> nodeset1;
 		std::set<int> nodeset2;
 		for (pnit1, pnit2; pnit1 != INVALID, pnit2 != INVALID; ++pnit1, ++pnit1){
-			nodeset1.insert(graph.id(pnit1));
-			nodeset1.insert(graph.id(pnit2));
+			nodeset1.insert(graph->id(pnit1));
+			nodeset1.insert(graph->id(pnit2));
 		}
 		if (nodeset1 == nodeset2) return false;
 		return true;
 	}
 
 	bool isEdgeDisjoint(Path<ListGraph> &p1, Path<ListGraph> &p2){
-		PathNodeIt<Path<ListGraph> > pnit1(graph, p1);
-		PathNodeIt<Path<ListGraph> > pnit2(graph, p1);
+		PathNodeIt<Path<ListGraph> > pnit1(*graph, p1);
+		PathNodeIt<Path<ListGraph> > pnit2(*graph, p1);
 		Node temp;
 		std::set<int> Edgeset1;
 		std::set<int> Edgeset2;
 		++pnit2;
 		for (pnit1, pnit2; pnit1 != INVALID, pnit2 != INVALID; ++pnit1, ++pnit2){
-			Edgeset1.insert(graph.id(findEdge(graph, pnit1, pnit2)));
+			Edgeset1.insert(graph->id(findEdge(*graph, pnit1, pnit2)));
 		}
-		PathNodeIt<Path<ListGraph> > pnit3(graph, p2);
-		PathNodeIt<Path<ListGraph> > pnit4(graph, p2);
+		PathNodeIt<Path<ListGraph> > pnit3(*graph, p2);
+		PathNodeIt<Path<ListGraph> > pnit4(*graph, p2);
 		++pnit4;
 		for (pnit3, pnit4; pnit3 != INVALID, pnit4 != INVALID; ++pnit3, ++pnit4){
-			Edgeset2.insert(graph.id(findEdge(graph, pnit3, pnit4)));
+			Edgeset2.insert(graph->id(findEdge(*graph, pnit3, pnit4)));
 		}
 		std::set<int> s3;
 		std::insert_iterator<std::set<int> > s3ii(s3, s3.begin());
@@ -586,7 +604,7 @@ public:
 
 	//Csinálunk egy ideiglenes map-ot ahol a még aktív védelmi utakhoz tartozó spektrum 1 a lejártat nem vesszeük figyelembe
 	void p_dealloc(){
-		ListGraph::EdgeMap<SpectrumState> temp_map(graph);
+		ListGraph::EdgeMap<SpectrumState> temp_map(*graph);
 		for (auto pit = pm.begin(); pit != pm.end(); ++pit)
 		{
 			if (pit->second.timestamp > 0)
@@ -596,7 +614,7 @@ public:
 
 		}
 		
-		ListGraph::EdgeIt eit(graph);
+		ListGraph::EdgeIt eit(*graph);
 		for (eit; eit != INVALID; ++eit)
 		{
 			for (int i = 0; i < CH::channel_num; i++)
@@ -614,9 +632,9 @@ public:
 		Path<ListGraph>::ArcIt arc_it(path);
 		for (arc_it; arc_it != INVALID; ++arc_it)
 		{
-			Node t = graph.target(arc_it);
-			Node s = graph.source(arc_it);
-			Edge e = lemon::findEdge(graph, t, s);
+			Node t = graph->target(arc_it);
+			Node s = graph->source(arc_it);
+			Edge e = lemon::findEdge(*graph, t, s);
 			for (int i = 0; i<width; i++){
 				temp_map[e].carrier[pos + i] = -1;
 			}
