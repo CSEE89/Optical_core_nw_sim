@@ -265,15 +265,6 @@ public:
 
 };
 
-// komparátor osztály: útvonalakat hasonlít össze hossz szerint
-
-class comp{
-public:
-	bool operator()(const pathpair &a, const pathpair &b)
-	{
-		return a.first.length() < b.first.length();
-	}
-};
 
 /**
 ModDijkstra osztály, az algoritmus a LEMON módosított Dijktra osztályra épül
@@ -331,9 +322,11 @@ public:
 			lengthmap->set(it, map[it]);
 		}
 	}
-	//Shared protection által meghívva 
-	//Útvonalválasztás shared protectionnak
-	// nem történik spektrumallokálás, csak blokkolás figyelés
+	/***Shared protection által meghívva 
+	*Útvonalválasztás shared protectionnak
+	* nem történik spektrumallokálás, csak blokkolás figyelés
+	* truval tér vissza ha 
+	*/
 	bool calcpath(Node s, Node t, const int &width)
 	{
 		
@@ -360,7 +353,7 @@ public:
 
 		listpath tmpPath;
 
-		if (createPath(width, tmpPath)){   //megnézzük, hogy van-e megfelelő ótvonal a halmazban, 
+		if (createPath(width, tmpPath)){   //megnézzük, hogy van-e megfelelő útvonal a halmazban, 
 			allocated = tmpPath;  //ha van elmentjük
 			switcher = true;  // true-val visszatérünk
 		}
@@ -378,9 +371,11 @@ public:
 		this->init();
 		return switcher;
 	}
-	//\  Futtatás
-	//	feltölti a _set változót útvonalakkal, oda-vissza fut \
-	//		createpath -et hívja
+	/**  Futtatás
+	* feltölti a _set változót útvonalakkal, oda-vissza fut \
+	*		createpath -et hívja
+	*	lefoglalja az utat
+	*/
 	bool run(Node s, Node t, const int &width, const long int &timestamp)
 	{
 		//ótvonalak keresése
@@ -457,21 +452,21 @@ public:
 
 	}
 	/**
-	Két útvonalhalmazt ad össze és rendez hossz szerint, majd bemásolja a halmaz tárolóba
+	Két útvonalhalmazt ad össze és rendez hossz szerint, majd bemásolja a _set halmaz tárolóba
 	*/
 	void setfill(pathpair_vector &t1, pathpair_vector &t2)
 	{
-		
-		for(int i=0;i<t2.size();i++)
-			{
-				t1.push_back(t2[i]);
-				
-			}
-		for(int i=0;i<t1.size();i++){
-		_set.insert(t1[i]);				
+		for (int i = 0; i<t1.size(); i++){
+			_set.insert(t1[i]);
 		}
-	}
+		for (int i = 0; i<t2.size(); i++){
+			_set.insert(t2[i]);
+		}
 
+	}
+	/**
+	* beállítja a tiltó map-et, lituljtuk azokat az éleket amin elve nincs elég szbad spektrum
+	*/
 	void setperm(const int &width)
 	{
 		for(GR::EdgeIt it(graph);it!=INVALID;++it) //végigjárjuk az összes élet és megnézzük van e elég hely
@@ -480,8 +475,9 @@ public:
 		}
 	}
 
-	//\
-	Végigmegyünk az utvonalhalmazon amit megtalált az algoritmus, kiválasztjuk azt az ótvonalat amin az spektrumallokálási módszer talál szabad sávot
+	/**Végigmegyünk az utvonalhalmazon amit megtalált az algoritmus, kiválasztjuk azt az útvonalat amin az spektrumallokálási módszer talál szabad sávot
+	* függvényparaméterként átvett tmpPath-ba teszi az utat
+	*/
 	bool createPath(int width,Path<ListGraph> &tmpPath)
 	{
 		for(std::multiset<pathpair,comp>::iterator it=_set.begin();it!=_set.end();it++)

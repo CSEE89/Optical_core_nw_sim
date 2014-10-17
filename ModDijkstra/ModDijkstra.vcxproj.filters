@@ -30,13 +30,7 @@
     <ClInclude Include="SpectrumState.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SpectrumAwareDijsktra.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Dijkstraplus.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Kshort.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="moddijkstra.h">
@@ -45,16 +39,13 @@
     <ClInclude Include="Kshort_mod.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Kshort_ListGraph.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Dedicated_protection.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SharedProtection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="general_traits.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Anycast.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
