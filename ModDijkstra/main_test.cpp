@@ -64,6 +64,7 @@ int main() {
 
 
 //-------------------------------------------------------------------------------------------------------------------------------------------
+			//anycast dedikált védelemmel
 
 			long int dursum(0), durcnt(0);
 			int n1(0), n2(0), width1(0), k(0); long int dur = 0;
@@ -71,12 +72,13 @@ int main() {
 			GlobalSpectrumState::blokknum = 0;
 			GlobalSpectrumState::protection_blokknum = 0;
 			cout << "ModDijkstra";
-			Anycast rsa(graph);
-			rsa.setReplicaServer(3);
+			Anycast any_rsa(graph);
+			any_rsa.setReplicaServer(3);
+			any_rsa.setReplicaServer(12);
+			any_rsa.setReplicaServer(27);
+			any_rsa.setReplicaServer(16);
 			for (int i2 = 0; i2<REQUESTS; i2++)
 			{
-
-
 				Path<ListGraph> allocated;
 				n1 = random1.integer(0, 27);
 				n2 = random1.integer(0, 27);
@@ -86,39 +88,18 @@ int main() {
 				width1 = random1.integer(1, 5);
 				allocated.clear();
 				if (n1 != n2&&dur>0){
-					try{
-						if (!GlobalSpectrumState::getInstance().EndToEnd(s1, t1, width1, dur))
-						{
-							GlobalSpectrumState::protection_round = false;
-							
-							if (rsa.runModDijkstra(s1, width1, dur))
-							{
-								allocated = rsa.allocatedPath();
-							}
-							else{ throw "Uzemi blokkolas"; }
-
-						}
-						if (!GlobalSpectrumState::getInstance().dedicated_EndToEnd(s1, t1, width1, dur, allocated))
-						{
-							GlobalSpectrumState::protection_round = true;
-							SubgraphMaker makesub(graph, allocated);
-							Subgraph *subgraph = makesub.make();
-							ModDijkstra<Subgraph> md_dijkstra1(*subgraph);
-							md_dijkstra1.run(s1, t1, width1, dur);
-
-						}
-					}
-					catch (char* c)
+					if (!GlobalSpectrumState::getInstance().EndToEnd(s1, t1, width1, dur))
 					{
+						GlobalSpectrumState::protection_round = false;
+						any_rsa.runModDijkstra(s1, width1, dur);
+						GlobalSpectrumState::getInstance().TimeCheck();
 					}
-					GlobalSpectrumState::getInstance().TimeCheck();
 				}
-
 			}
 			//printSpectrum(spectrum_map, graph);
-			cout << endl << "Mod BLOKKOLASOK:";
-			cout << rsa.getBlock() << endl;
-			cout << "vedelmi blokkolas" << GlobalSpectrumState::protection_blokknum << endl;
+			cout << endl << "ANYCAST BLOKKOLASOK:";
+			cout << any_rsa.getBlock() << endl;
+			cout << "ANYCAST vedelmi blokkolas" << any_rsa.getBlockProt() << endl;
 
 
 //-------------------------------------------------------------------------------------------------------------------------------------------
@@ -177,6 +158,7 @@ for (int ii = 0; ii < 5; ii++)
 					if (_ks.run(s1, t1, width1, dur))
 					{
 						allocated = _ks.allocatedPath();
+
 					}
 					else{ throw "Uzemi blokkolas"; }
 
@@ -236,6 +218,7 @@ void simulationDedicatedModdijk(ListGraph &graph, Random &random)
 					if (md_dijkstra.run(s1, t1, width1, dur))
 					{
 						allocated = md_dijkstra.allocatedPath();
+						
 					}
 					else{ throw "Uzemi blokkolas"; }
 
@@ -344,6 +327,7 @@ void simulationSharedModdijkstra(ListGraph &graph, Random &random)
 					if (md_dijkstra.run(s1, t1, width1, dur))
 					{
 						allocated = md_dijkstra.allocatedPath();
+
 					}
 					else{ throw "Uzemi blokkolas"; }
 				}

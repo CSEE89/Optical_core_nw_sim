@@ -329,10 +329,7 @@ public:
 	*/
 	bool calcpath(Node s, Node t, const int &width)
 	{
-		
-		GR::EdgeIt eit(graph);
-
-
+		allocated.clear();
 		bool switcher = false; // tudunk e allokálni valamelyik út mentén
 		int pos(0);
 		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_map);
@@ -378,6 +375,7 @@ public:
 	*/
 	bool run(Node s, Node t, const int &width, const long int &timestamp)
 	{
+		allocated.clear();
 		//ótvonalak keresése
 		lemon::csabi::Dijkstra<GR, cost_Map> dijkstra(graph, *lengthmap, spectrum_map);
 		setperm(width);

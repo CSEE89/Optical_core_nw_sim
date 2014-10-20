@@ -71,7 +71,7 @@ protected:
 	ListGraph *graph;
 	int n;  //csomópontok száma
 	static int alloc_pos;   ///belső tagváltozót váltizatatnak a függvények, innen felfelé(nagybb indexű) lesz lefoglalva a sávszélesség
-	
+	Path<ListGraph> working_path;  // Alloc által lefoglalt utat tárolja, védelemhez kell
 private:
 	GlobalSpectrumState() {
 		
@@ -152,7 +152,11 @@ public:
 		PathMatrix tempMatrix(global_key, path, pos, width, timestamp);
 		path_matrix.insert(std::pair<int,PathMatrix>(key,tempMatrix));				
 	}
-	
+	 // Alloc által lefoglat út
+	Path<ListGraph> getWorkingPath(){
+		return working_path;
+	}
+
 	// egy PathMatrix elem kiírása
 	void print(const PathMatrix &pm)
 	{
@@ -221,8 +225,7 @@ public:
 	Pathmatrixban elhelyzi a link adatait
 	void Alloc(lemon::Path<ListGraph> &path,const int &width,const long int &timestamp,int index=1)
 	{
-		
-		
+				
 		int n1,n2;
 		n1=graph->id(graph->source(path.front()));
 		n2=graph->id(graph->source(path.back()));  //itt mért nem target?		
@@ -239,6 +242,7 @@ public:
 		if(n2>=n1){int tmp=n1; n1=n2; n2=tmp;}
 		traffic_matrix[n1][n2]++;
 		insertPath(path,width,alloc_pos,timestamp);
+		working_path = path;
 		alloc_pos = -1;
 	}
 	
@@ -323,12 +327,11 @@ public:
 	bool dedicated_EndToEnd(Node s, Node t, const int &width, const long int &timestamp,Path<ListGraph> &allocated_path)
 	{
 		SpectrumState spectrum;
-		if (!linkcheck(s, t))return false; //linkchek  adott ret-nek utakat
-		for (std::multimap<int, PathMatrix>::iterator it = end2end_paths.first; it != end2end_paths.second; ++it)
+		if (!linkcheck(s, t))return false; //linkchek  adott end2endpaths-nek utakat
+		for (std::multimap<int, PathMatrix>::iterator it = end2end_paths.first; it != end2end_paths.second; ++it) // végigjárjuk az utakat
 		{
-			//egy-egy ut spektruma
-			if (isEdgeDisjoint(allocated_path, it->second.path)){
-				if (EndToEndSpectrumCheck(it->second, width))//visszatér egy true-val és beállítja allocpos-t ha van az út mellett hely
+			if (isEdgeDisjoint(allocated_path, it->second.path)){  // élfüggetlen-e az üzemitől
+				if (EndToEndSpectrumCheck(it->second, width))//van e hely a meglévő út mellett, beállítja allocpos-t ha van az út mellett hely
 				{
 					Alloc(it->second.path, width, timestamp);
 					return true;
@@ -626,7 +629,7 @@ public:
 			
 		}
 	}
-	//adott map-on lefoglalja az igényelt sávot egy path mentén
+	//adott map-on lefoglalja az igényelt sávot egy path mentén, ideiglenes map használja, eggyel fentebb
 	void pathalloc(Path<ListGraph> &path, ListGraph::EdgeMap<SpectrumState> &temp_map,int pos,int width){
 	
 		Path<ListGraph>::ArcIt arc_it(path);

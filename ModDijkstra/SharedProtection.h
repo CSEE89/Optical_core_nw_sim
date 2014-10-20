@@ -253,7 +253,7 @@ public:
 	}
 
 	// A kiválasztott útvonalon a spektrum lefoglalása\
-	GlobalSpectrum::alloc_pos már korábban be lett állítva
+	GlobalSpectrum::alloc_pos már korábban be lett állítva, modDijlstraRouting ->calcpath->creatpath->checkselector
 	void p_alloc(lemon::Path<ListGraph> &path, const int &width, const long int &timestamp, int index = 1)
 	{
 			
