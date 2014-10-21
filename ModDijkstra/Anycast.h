@@ -125,7 +125,7 @@ public:
 		GlobalSpectrumState::protection_round = true;
 		SubgraphMaker makesub(graph, allocated);
 
-
+		// ellenörzés, NEM SZÜKSÉGES----------------------------------------
 		std::vector<int> cmp;
 		for (PathNodeIt<Path<ListGraph> > it(graph, allocated); it != INVALID; it++) { cmp.push_back(graph.id(it)); }
 		std::vector<int> cmp2;
@@ -138,7 +138,7 @@ public:
 		}
 		else
 			std::cout << "The contents of both sequences differ.\n";
-
+		//------------------------------------------------
 
 		Subgraph *subgraph = makesub.make();
 		ModDijkstra<Subgraph> md_dijkstra(*subgraph);
@@ -205,8 +205,6 @@ private:
 		Path<ListGraph> tp = *paths.begin();	
 		PathNodeIt<Path<ListGraph> > it(graph, tp);
 		allocatedNode = (Node)it;
-		for (it; it != INVALID; it++){  std::cout<<" "<< graph.id(it); }
-		std::cout << endl <<"AllocNode: "<< graph.id(allocatedNode)<<endl;
 		GlobalSpectrumState::getInstance().Alloc(tp, width, dur);
 	}
 

@@ -79,7 +79,6 @@ private:
 	GlobalSpectrumState(const GlobalSpectrumState& g);
 	GlobalSpectrumState(GlobalSpectrumState& g){}
 	GlobalSpectrumState& operator=(GlobalSpectrumState const&){}
-	//GlobalSpectrumState(ListGraph &graph, ListGraph::EdgeMap<SpectrumState> &map) :graph(graph), spectrum_map(map), path_matrix(), end2end_paths()
 
 	~GlobalSpectrumState(){
 		//delete graph;
@@ -304,10 +303,9 @@ public:
 	bool EndToEnd(Node s,Node t,const int &width,const long int &timestamp)
 	{
 		SpectrumState spectrum;
-		if (!linkcheck(s, t))
-		{
-			
-			return false; //linkchek  adott ret-nek utakat
+		if (!linkcheck(s, t)) //linkchek  adott end2end_paths-nak utakat
+		{			
+			return false; 
 		}
 		for (std::multimap<int, PathMatrix>::iterator it = end2end_paths.first; it != end2end_paths.second; ++it)
 		{
