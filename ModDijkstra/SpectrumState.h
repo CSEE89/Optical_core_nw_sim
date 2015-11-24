@@ -654,6 +654,10 @@ public:
 		}
 	}
 };
+class BaseGrooming{
+public:
+	virtual void groom() = 0;
+};
 /** GRooming calss hierarchy Base->Matrix,ENd2end
 * Fields: LinkMatrix, spectrum_map
 * 
