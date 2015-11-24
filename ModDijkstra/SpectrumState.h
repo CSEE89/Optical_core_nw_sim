@@ -118,6 +118,7 @@ public:
 	void clear()
 	{
 		traffic_matrix.clear();
+		pm.clear();
 		std::vector<int> tmp(n, 0);
 		for (int i = 0; i<n; i++)
 		{
@@ -417,7 +418,7 @@ public:
 	{
 		//if (protection_round)
 		//{
-			//return OtherBaseSpectrumCheck(width, spectrum); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!4
+		//	return OtherBaseSpectrumCheck(width, spectrum); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!4
 		//}
 		if(ALLOCMOD==0)
 		{return BaseSpectrumCheck(width,spectrum);}
@@ -429,7 +430,18 @@ public:
 	//\
 	spektrumkitöltési stratégiák az alloc_pos-t állítják  be\
 	ótvonalhoz tartozó spektrumok kapnak
-	
+	SpectrumState loadMeasure(){
+		SpectrumState buff;
+		for (ListGraph::EdgeIt eit(*graph); eit != INVALID; eit++)
+		{
+			SpectrumState tmp = spectrum_map->operator[](eit);
+			for (int i = 0; i < CH::channel_num; i++)
+			{				
+				//if (tmp[i] != 0) buff[i]++;
+			}
+		}
+		return buff;
+	}
 	static bool TwoSideSpectrumCheck(int width,SpectrumState &spectrum)
 	{
 		int gapwidth1(0),gapwidth2(0);
@@ -641,6 +653,19 @@ public:
 			}
 		}
 	}
+};
+/** GRooming calss hierarchy Base->Matrix,ENd2end
+* Fields: LinkMatrix, spectrum_map
+* 
+*/
+class MatrixGrooming{
+	//
+public:
+	void groom(){} //given s and t nodes and with
+private:
+	void alloc(){} //allocnak saját osztály, composition-t használva
+	void getWorkingPaths(){}
+
 };
 
 #endif	

@@ -123,7 +123,7 @@ public:
 	bool modDijkstra_routing(Node s, Node t, const int &width){
 		bool switcher = false;
 		ModDijkstra<Subgraph> md_dijkstra(*graph, *mod_spectrum_map);
-		//md_dijkstra.initlengthMap(*cost_map);
+	//	md_dijkstra.initlengthMap(*cost_map);
 		switcher=md_dijkstra.calcpath(s, t, width);
 		p_path.clear();
 		p_path=md_dijkstra.allocatedPath();	

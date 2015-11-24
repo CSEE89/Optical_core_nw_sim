@@ -48,6 +48,15 @@
     <ClInclude Include="Anycast.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MyDijkstra.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Unicast.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SururballeRoute.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
